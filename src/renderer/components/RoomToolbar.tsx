@@ -11,10 +11,7 @@ export function RoomToolbar({ sessionId }: Props): JSX.Element {
       <button type="button" title="壓縮記憶" onClick={() => void window.ccui.compact(sessionId)}>
         /compact
       </button>
-      <button type="button" title="清空重置" onClick={send('/clear\r')}>
-        /clear
-      </button>
-      <button type="button" title="時光倒流（回退檢查點）" onClick={send('/rewind\r')}>
+      <button type="button" title="時光倒流（開啟檢查點選單）" onClick={send('/rewind\r')}>
         /rewind
       </button>
       <button type="button" title="程式碼審查" onClick={send('/review\r')}>
