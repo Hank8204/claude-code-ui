@@ -40,6 +40,32 @@ describe('StateMachine — hook 事件序列', () => {
     sm.markPtyCrashed()
     expect(states).toEqual(['error'])
   })
+
+  it('PreToolUse + Bash git commit → committing（spec_04 §4）', () => {
+    const { sm, states } = make()
+    sm.applyHookEvent('PreToolUse', { toolName: 'Bash', command: 'git commit -m "x"' })
+    expect(states).toEqual(['committing'])
+  })
+
+  it('committing 後的 PostToolUse 回到 working，Stop 回到 idle', () => {
+    const { sm, states } = make()
+    sm.applyHookEvent('PreToolUse', { toolName: 'Bash', command: 'git commit -m x' })
+    sm.applyHookEvent('PostToolUse', { toolName: 'Bash' })
+    sm.applyHookEvent('Stop')
+    expect(states).toEqual(['committing', 'working', 'idle'])
+  })
+
+  it('非 git commit 的 Bash 指令仍是 working', () => {
+    const { sm, states } = make()
+    sm.applyHookEvent('PreToolUse', { toolName: 'Bash', command: 'git status' })
+    expect(states).toEqual(['working'])
+  })
+
+  it('git commit 出現在非 Bash 工具（如 Read）不觸發 committing', () => {
+    const { sm, states } = make()
+    sm.applyHookEvent('PreToolUse', { toolName: 'Read', command: 'git commit' })
+    expect(states).toEqual(['working'])
+  })
 })
 
 describe('StateMachine — burnout 與 state 正交', () => {

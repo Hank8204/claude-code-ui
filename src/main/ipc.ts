@@ -1,7 +1,7 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { CliNotFoundError } from './errors.js'
 import type { SessionManager } from './session/SessionManager.js'
-import type { MainToRenderer } from '@shared/types.js'
+import type { MainToRenderer, SessionControls } from '@shared/types.js'
 
 type Emit = <C extends keyof MainToRenderer>(channel: C, payload: MainToRenderer[C]) => void
 
@@ -22,8 +22,10 @@ export function registerIpcHandlers(manager: SessionManager, emit: Emit): void {
     }
   }
 
-  ipcMain.handle('session:start', (_e, projectPath: string, displayName?: string) =>
-    guard(() => manager.start(projectPath, displayName))()
+  ipcMain.handle(
+    'session:start',
+    (_e, projectPath: string, displayName?: string, controls?: Partial<SessionControls>) =>
+      guard(() => manager.start(projectPath, displayName, controls))()
   )
   ipcMain.handle('session:restart', (_e, id: string) => guard(() => manager.restart(id))())
   ipcMain.handle('session:rename', (_e, id: string, name: string) => manager.rename(id, name))
@@ -34,8 +36,28 @@ export function registerIpcHandlers(manager: SessionManager, emit: Emit): void {
     manager.resize(id, cols, rows)
   )
   ipcMain.handle('session:compact', (_e, id: string) => manager.compact(id))
+  ipcMain.handle('session:sendCommand', (_e, id: string, command: string) =>
+    guard(() => manager.sendCommand(id, command))()
+  )
+  ipcMain.handle('session:interrupt', (_e, id: string) =>
+    guard(() => manager.interrupt(id))()
+  )
+  ipcMain.handle('session:setControls', (_e, id: string, patch: Partial<SessionControls>) =>
+    guard(() => manager.setControls(id, patch))()
+  )
   ipcMain.handle('session:setForeground', (_e, id: string | null) => manager.setForeground(id))
+  ipcMain.handle('project:pick', () => pickProjectDir())
   ipcMain.handle('app:getState', () => manager.getState())
+}
+
+/** 原生資料夾選取器（spec_04 / ISSUE-003）。 */
+async function pickProjectDir(): Promise<string | null> {
+  const owner = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  const opts = { title: '選擇專案資料夾', properties: ['openDirectory' as const] }
+  const { canceled, filePaths } = owner
+    ? await dialog.showOpenDialog(owner, opts)
+    : await dialog.showOpenDialog(opts)
+  return canceled || filePaths.length === 0 ? null : filePaths[0]
 }
 
 /** 建立廣播函式，供 SessionManager 推事件給 renderer。 */

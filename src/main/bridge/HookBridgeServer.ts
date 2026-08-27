@@ -15,6 +15,8 @@ export interface HookEvent {
   hookEventName: string
   cwd: string
   toolName?: string
+  /** PreToolUse 對 Bash 工具時帶入 `tool_input.command`——spec_04 §4 committing 判斷用。 */
+  command?: string
   transcriptPath?: string
 }
 
@@ -102,7 +104,15 @@ export class HookBridgeServer {
       hookEventName: r.hook_event_name,
       cwd: typeof r.cwd === 'string' ? r.cwd : '',
       toolName: typeof r.tool_name === 'string' ? r.tool_name : undefined,
+      command: readCommand(r.tool_input),
       transcriptPath: typeof r.transcript_path === 'string' ? r.transcript_path : undefined
     })
   }
+}
+
+/** 從 tool_input 取 Bash 指令字串；非物件或無 command 時回傳 undefined。 */
+function readCommand(toolInput: unknown): string | undefined {
+  if (typeof toolInput !== 'object' || toolInput === null) return undefined
+  const cmd = (toolInput as Record<string, unknown>).command
+  return typeof cmd === 'string' ? cmd : undefined
 }

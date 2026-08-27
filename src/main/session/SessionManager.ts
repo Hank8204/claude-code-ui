@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import { ClaudeSession } from './ClaudeSession.js'
+import { normalizeControls } from './controls.js'
 import { TranscriptReader } from '../transcript/TranscriptReader.js'
 import { resolveClaudeEnv, type ClaudeEnv } from '../cli-resolver.js'
 import { SessionNotFoundError } from '../errors.js'
@@ -10,12 +11,14 @@ import type {
   PersistedSession,
   WorkspacePort
 } from '../config/store.js'
-import type {
-  AppStateSnapshot,
-  MainToRenderer,
-  ProjectSnapshot,
-  SessionSnapshot,
-  UsageSnapshot
+import {
+  DEFAULT_CONTROLS,
+  type AppStateSnapshot,
+  type MainToRenderer,
+  type ProjectSnapshot,
+  type SessionControls,
+  type SessionSnapshot,
+  type UsageSnapshot
 } from '@shared/types.js'
 
 type Emit = <C extends keyof MainToRenderer>(channel: C, payload: MainToRenderer[C]) => void
@@ -80,7 +83,11 @@ export class SessionManager {
     this.broadcastProjectSessions(record.projectId)
   }
 
-  async start(projectPath: string, displayName?: string): Promise<{ sessionId: string }> {
+  async start(
+    projectPath: string,
+    displayName?: string,
+    controlsPatch?: Partial<SessionControls>
+  ): Promise<{ sessionId: string }> {
     const env = await this.ensureClaudeEnv()
     const project = this.ensureProject(projectPath)
     const sessionId = randomUUID()
@@ -92,7 +99,8 @@ export class SessionManager {
       projectPath,
       displayName: name,
       cliPath: env.cliPath,
-      pathEnv: env.pathEnv
+      pathEnv: env.pathEnv,
+      controls: normalizeControls(controlsPatch, DEFAULT_CONTROLS)
     })
     this.register(session)
     await session.start()
@@ -158,6 +166,21 @@ export class SessionManager {
     this.require(sessionId).compact()
   }
 
+  /** spec_04 §2：一鍵指令送進 PTY。 */
+  sendCommand(sessionId: string, command: string): void {
+    this.require(sessionId).sendCommand(command)
+  }
+
+  /** spec_04 §2：Ctrl-C 中斷。 */
+  interrupt(sessionId: string): void {
+    this.require(sessionId).interrupt()
+  }
+
+  /** spec_04 §3：更新常駐開關。 */
+  setControls(sessionId: string, patch: Partial<SessionControls>): void {
+    this.require(sessionId).setControls(patch)
+  }
+
   /** 控制輸出轉發（spec_01 §3.5）：只有前景 session 的 output 會廣播。 */
   setForeground(sessionId: string | null): void {
     if (sessionId !== null && !this.sessions.has(sessionId)) {
@@ -174,7 +197,10 @@ export class SessionManager {
     )
     if (!session) return
     if (event.transcriptPath) session.noteTranscriptPath(event.transcriptPath)
-    session.handleHookEvent(event.hookEventName)
+    session.handleHookEvent(event.hookEventName, {
+      toolName: event.toolName,
+      command: event.command
+    })
   }
 
   getState(): AppStateSnapshot {
@@ -213,6 +239,10 @@ export class SessionManager {
     session.on('burnout', (isBurnout) =>
       this.emit('session:burnout', { sessionId: session.sessionId, isBurnout })
     )
+    session.on('controls', (controls) => {
+      this.emit('session:controls', { sessionId: session.sessionId, controls })
+      this.persist()
+    })
     session.on('ended', (reason) =>
       this.emit('session:ended', { sessionId: session.sessionId, reason })
     )
@@ -239,6 +269,7 @@ export class SessionManager {
     projectId: string
     projectPath: string
     displayName: string
+    controls: SessionControls
   } {
     const live = this.sessions.get(sessionId)
     if (live) {
@@ -246,7 +277,8 @@ export class SessionManager {
         sessionId,
         projectId: live.projectId,
         projectPath: live.projectPath,
-        displayName: live.displayName
+        displayName: live.displayName,
+        controls: live.currentControls
       }
     }
     const sleeping = this.dormant.get(sessionId)
@@ -256,7 +288,8 @@ export class SessionManager {
       sessionId,
       projectId: sleeping.projectId,
       projectPath: project.projectPath,
-      displayName: sleeping.displayName
+      displayName: sleeping.displayName,
+      controls: normalizeControls(sleeping.controls, DEFAULT_CONTROLS)
     }
   }
 
@@ -270,7 +303,8 @@ export class SessionManager {
       readonly: false,
       state: 'disconnected',
       isBurnout: false,
-      usage: this.dormantUsage.get(session.sessionId) ?? null
+      usage: this.dormantUsage.get(session.sessionId) ?? null,
+      controls: normalizeControls(session.controls, DEFAULT_CONTROLS)
     }
   }
 
@@ -283,7 +317,8 @@ export class SessionManager {
     const live: PersistedSession[] = [...this.sessions.values()].map((s) => ({
       sessionId: s.sessionId,
       projectId: s.projectId,
-      displayName: s.displayName
+      displayName: s.displayName,
+      controls: s.currentControls
     }))
     this.workspace.save({
       projects: [...this.projects.values()],

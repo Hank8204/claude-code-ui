@@ -106,6 +106,7 @@ function runClaude(cli: string, cwd: string, args: string[]): Promise<void> {
 
 function firstSnapshot(sessionId: string, timeoutMs: number): Promise<UsageSnapshot | null> {
   return new Promise((resolve) => {
+    // eslint-disable-next-line prefer-const -- 於 timer callback 內先被引用，無法在宣告處初始化
     let reader: TranscriptReader
     const timer = setTimeout(() => {
       void reader?.stop()

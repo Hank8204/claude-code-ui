@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
-import type { MainToRendererChannel } from '@shared/types.js'
+import type { MainToRendererChannel, SessionControls } from '@shared/types.js'
 
 /**
  * contextBridge 白名單（spec_01 §4.1）。
@@ -10,6 +10,7 @@ const SUBSCRIBABLE: MainToRendererChannel[] = [
   'session:state',
   'session:usage',
   'session:burnout',
+  'session:controls',
   'session:ended',
   'project:sessions',
   'app:state',
@@ -17,8 +18,11 @@ const SUBSCRIBABLE: MainToRendererChannel[] = [
 ]
 
 const api = {
-  startSession: (projectPath: string, displayName?: string) =>
-    ipcRenderer.invoke('session:start', projectPath, displayName),
+  startSession: (
+    projectPath: string,
+    displayName?: string,
+    controls?: Partial<SessionControls>
+  ) => ipcRenderer.invoke('session:start', projectPath, displayName, controls),
   renameSession: (id: string, name: string) => ipcRenderer.invoke('session:rename', id, name),
   stopSession: (id: string) => ipcRenderer.invoke('session:stop', id),
   forgetSession: (id: string) => ipcRenderer.invoke('session:forget', id),
@@ -27,6 +31,12 @@ const api = {
   resize: (id: string, cols: number, rows: number) =>
     ipcRenderer.invoke('session:resize', id, cols, rows),
   compact: (id: string) => ipcRenderer.invoke('session:compact', id),
+  sendCommand: (id: string, command: string) =>
+    ipcRenderer.invoke('session:sendCommand', id, command),
+  interrupt: (id: string) => ipcRenderer.invoke('session:interrupt', id),
+  setControls: (id: string, patch: Partial<SessionControls>) =>
+    ipcRenderer.invoke('session:setControls', id, patch),
+  pickProjectDir: (): Promise<string | null> => ipcRenderer.invoke('project:pick'),
   setForeground: (id: string | null) => ipcRenderer.invoke('session:setForeground', id),
   getState: () => ipcRenderer.invoke('app:getState'),
 

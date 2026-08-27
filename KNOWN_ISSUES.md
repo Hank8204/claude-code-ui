@@ -39,12 +39,25 @@
 - **淨效果**：有實質對話 → 幾分鐘後一切正常；空跑 session → StaminaBar「未知」+ resume fallback
 - **下一步**：(1) 找出「怎樣的 turn 才會觸發 claude 寫 transcript」；(2) 視情況向 Claude Code 團隊回報
 
-### ISSUE-003 · 新增專案只能手動貼路徑
+### ISSUE-007 · spec_04 §3 常駐開關：執行中改動無確認回饋（樂觀顯示）
 - **嚴重度**：Medium
-- **分類**：`ux`
-- **狀態**：未修（M3 範圍，spec 已註明）
-- **現象**：AddProjectBar 是純文字輸入，沒有原生資料夾選取器。
-- **下一步**：M3 換成 Electron `dialog.showOpenDialog`。
+- **分類**：`upstream` `ux`
+- **狀態**：已知限制，使用者接受（2026-08-27）
+- **現象**：model / effort / autoApprove / fast 開關在 session 執行中改動時，只能往 PTY
+  送 `/model`、`/effort`、`/fast` 或 Shift-Tab。claude CLI 不回報實際狀態，UI 顯示的是
+  「使用者意圖」而非 CLI 真實值，兩者可能不同步（例如 claude 版本不吃某個 slash command）。
+- **緩解**：建立 / resume session 時改以啟動參數（`--model` / `--effort` /
+  `--permission-mode`）精準帶入——這條路徑 100% 可控。`--model` 之後也可由 transcript 的
+  `usage.model` 間接確認。
+- **下一步**：確認 claude 2.1.247 是否有 `/effort`、`/model <alias>` 這些 slash command；
+  沒有的話改為「改開關 = 觸發 resume 重生」。
+
+### ISSUE-008 · autoApprove 執行中切換無法抵達 bypassPermissions
+- **嚴重度**：Low
+- **分類**：`upstream`
+- **現象**：claude 互動模式只有 Shift-Tab 循環（normal → acceptEdits → plan），
+  `bypassPermissions` 只能靠啟動參數。執行中按開關只送一次 Shift-Tab 做最佳努力。
+- **下一步**：想要真正的「全自動」請在建立 session 時勾「自動批准」。
 
 ### ISSUE-004 · PTY 非預期退出 → error 狀態未實機驗證
 - **嚴重度**：Low
@@ -73,7 +86,8 @@
 
 | ID | 標題 | commit |
 |---|---|---|
-| ISSUE-002 | CLI 找不到時沒有錯誤 UI → app:error 事件 + 錯誤橫幅 + 選單「指定 claude CLI 路徑」 | (本次) |
+| ISSUE-003 | 新增專案只能貼路徑 → 加原生資料夾選取器（`project:pick` + 「瀏覽…」按鈕） | (本次) |
+| ISSUE-002 | CLI 找不到時沒有錯誤 UI → app:error 事件 + 錯誤橫幅 + 選單「指定 claude CLI 路徑」 | `a05012a` |
 | — | packaged .app `node: command not found`（PATH 未傳給 spawn 的 claude） | `c1a134b` |
 | — | 唯讀誤判：PTY 死掉的 session 被當成 readonly、打不開 | `6884385` |
 | — | 接回不存在對話的 session 讓小人倒下 → resume fallback | `a17a93d` / `6da82fd` |

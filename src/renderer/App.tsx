@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type {
   AppStateSnapshot,
+  SessionControls,
   SessionState,
   UsageSnapshot
 } from '@shared/types.js'
@@ -39,6 +40,10 @@ export function App(): JSX.Element {
       window.ccui.on('session:usage', (p) => {
         const e = p as { sessionId: string; usage: UsageSnapshot }
         sessionStore.patchUsage(e.sessionId, e.usage)
+      }),
+      window.ccui.on('session:controls', (p) => {
+        const e = p as { sessionId: string; controls: SessionControls }
+        sessionStore.patchControls(e.sessionId, e.controls)
       })
     ]
     return () => offs.forEach((off) => off())

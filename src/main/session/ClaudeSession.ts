@@ -4,7 +4,18 @@ import { StateMachine } from '../state/StateMachine.js'
 import { TranscriptReader } from '../transcript/TranscriptReader.js'
 import { OutputBatcher } from './OutputBatcher.js'
 import { ReadonlySessionError } from '../errors.js'
-import type { SessionSnapshot, SessionState, UsageSnapshot } from '@shared/types.js'
+import {
+  spawnArgsForControls,
+  liveCommandsForControls,
+  normalizeControls
+} from './controls.js'
+import {
+  DEFAULT_CONTROLS,
+  type SessionControls,
+  type SessionSnapshot,
+  type SessionState,
+  type UsageSnapshot
+} from '@shared/types.js'
 
 export interface SessionConfig {
   sessionId: string
@@ -18,6 +29,8 @@ export interface SessionConfig {
   resume?: boolean
   /** 外部監看 session（無 PTY handle，不可輸入）。PTY 死掉不算——那是 disconnected。 */
   readonly?: boolean
+  /** spec_04 §3：啟動時的常駐開關；未帶則用 DEFAULT_CONTROLS。 */
+  controls?: SessionControls
 }
 
 interface SessionEvents {
@@ -25,6 +38,7 @@ interface SessionEvents {
   state: [SessionState]
   usage: [UsageSnapshot]
   burnout: [boolean]
+  controls: [SessionControls]
   ended: [string]
   /** 首次寫出 transcript——此後這個 session 才能 `claude --resume`。 */
   persistable: []
@@ -49,6 +63,7 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   private readonly state: StateMachine
   private readonly transcript: TranscriptReader
   private readonly batcher: OutputBatcher
+  private controls: SessionControls
   private usageSnapshot: UsageSnapshot | null = null
   private disposed = false
   private resumable = false
@@ -62,6 +77,7 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     this.projectId = config.projectId
     this.projectPath = config.projectPath
     this.displayName = config.displayName
+    this.controls = config.controls ?? { ...DEFAULT_CONTROLS }
 
     this.state = new StateMachine(
       (s) => this.emit('state', s),
@@ -97,8 +113,38 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   }
 
   /** 收到經 session_id 派送過來的 hook 事件。 */
-  handleHookEvent(hookEventName: string): void {
-    this.state.applyHookEvent(hookEventName)
+  handleHookEvent(hookEventName: string, ctx?: { toolName?: string; command?: string }): void {
+    this.state.applyHookEvent(hookEventName, ctx)
+  }
+
+  get currentControls(): SessionControls {
+    return this.controls
+  }
+
+  /**
+   * spec_04 §3：更新常駐開關。執行中會把差異即時送進 PTY（樂觀套用，無確認回饋）。
+   * @returns 套用後的完整開關值。
+   */
+  setControls(patch: Partial<SessionControls>): SessionControls {
+    const next = normalizeControls(patch, this.controls)
+    if (this.pty) {
+      for (const cmd of liveCommandsForControls(this.controls, next)) this.pty.write(cmd)
+    }
+    this.controls = next
+    this.emit('controls', next)
+    return next
+  }
+
+  /** spec_04 §2：送一鍵指令進 PTY（呼叫端負責帶結尾 `\r`）。 */
+  sendCommand(command: string): void {
+    if (!this.pty) throw new ReadonlySessionError(this.sessionId)
+    this.pty.write(command)
+  }
+
+  /** spec_04 §2：Ctrl-C 中斷。 */
+  interrupt(): void {
+    if (!this.pty) throw new ReadonlySessionError(this.sessionId)
+    this.pty.write('\x03')
   }
 
   /** hook payload 帶來的 transcript_path，轉給 TranscriptReader 作定位提示。 */
@@ -133,7 +179,8 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
       readonly: this.isReadonly,
       state: this.state.state,
       isBurnout: this.state.isBurnout,
-      usage: this.usageSnapshot
+      usage: this.usageSnapshot,
+      controls: this.controls
     }
   }
 
@@ -176,9 +223,10 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
 
   private spawnPty(): void {
     const resuming = Boolean(this.config.resume) && !this.resumeFailed
-    const args = resuming
+    const base = resuming
       ? ['--resume', this.sessionId]
       : ['--session-id', this.sessionId, '--name', this.displayName]
+    const args = [...base, ...spawnArgsForControls(this.controls)]
 
     this.spawnedAt = Date.now()
     this.log(`spawn ${this.config.cliPath} ${args.join(' ')}`)

@@ -3,13 +3,43 @@
  * 這是唯一的真相來源——IPC 兩端都 import 這裡，不各自複製一份。
  */
 
-/** 小人的活動狀態（spec_02 §3D）。與 `isBurnout` 正交，不要合併成單一 enum。 */
+/** 小人的活動狀態（spec_02 §3D / spec_04 §4）。與 `isBurnout` 正交，不要合併成單一 enum。 */
 export type SessionState =
   | 'idle'
   | 'working'
+  | 'committing'
   | 'waiting_input'
   | 'error'
   | 'disconnected'
+
+/** spec_04 §3：思考模型選擇。`default` = 不帶 --model，用 CLI 預設。 */
+export type ModelChoice = 'default' | 'opus' | 'sonnet' | 'haiku'
+
+/** spec_04 §3：思考深度，對應 `claude --effort`。 */
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
+/**
+ * spec_04 §3：session 的常駐開關。
+ *
+ * 這些值是「使用者的意圖」——執行中透過往 PTY 送 slash command 套用，
+ * 但我們收不到 CLI 的確認回饋，所以 UI 為樂觀顯示，可能與 CLI 實際狀態不同步。
+ * 建立 / resume session 時則以啟動參數精準帶入。
+ */
+export interface SessionControls {
+  model: ModelChoice
+  /** 自動批准模式：true → 啟動帶 `--permission-mode bypassPermissions`。 */
+  autoApprove: boolean
+  effort: EffortLevel | null
+  /** 極速模式（Opus 專屬），只能執行中以 `/fast` 切換。 */
+  fast: boolean
+}
+
+export const DEFAULT_CONTROLS: SessionControls = {
+  model: 'default',
+  autoApprove: false,
+  effort: null,
+  fast: false
+}
 
 /** 一次 assistant message 的 token usage（transcript 取得，spec_01 §3.3）。 */
 export interface TokenUsage {
@@ -41,6 +71,8 @@ export interface SessionSnapshot {
   state: SessionState
   isBurnout: boolean
   usage: UsageSnapshot | null
+  /** spec_04 §3：常駐開關的目前意圖值。 */
+  controls: SessionControls
 }
 
 export interface ProjectSnapshot {
@@ -51,7 +83,11 @@ export interface ProjectSnapshot {
 
 /** Renderer → Main（ipcRenderer.invoke）。preload 逐一白名單暴露。 */
 export interface RendererToMain {
-  'session:start': (projectPath: string, displayName?: string) => Promise<{ sessionId: string }>
+  'session:start': (
+    projectPath: string,
+    displayName?: string,
+    controls?: Partial<SessionControls>
+  ) => Promise<{ sessionId: string }>
   'session:rename': (sessionId: string, displayName: string) => Promise<void>
   'session:stop': (sessionId: string) => Promise<void>
   'session:forget': (sessionId: string) => Promise<void>
@@ -59,7 +95,18 @@ export interface RendererToMain {
   'session:input': (sessionId: string, data: string) => Promise<void>
   'session:resize': (sessionId: string, cols: number, rows: number) => Promise<void>
   'session:compact': (sessionId: string) => Promise<void>
+  /** spec_04 §2：把一鍵指令（含結尾 `\r`）送進 PTY。 */
+  'session:sendCommand': (sessionId: string, command: string) => Promise<void>
+  /** spec_04 §2：送出 Ctrl-C（`\x03`）中斷當前執行。 */
+  'session:interrupt': (sessionId: string) => Promise<void>
+  /** spec_04 §3：更新常駐開關，執行中會即時套用到 PTY。 */
+  'session:setControls': (
+    sessionId: string,
+    patch: Partial<SessionControls>
+  ) => Promise<void>
   'session:setForeground': (sessionId: string | null) => Promise<void>
+  /** spec_04：原生資料夾選取器（ISSUE-003）。回傳選定路徑或 null。 */
+  'project:pick': () => Promise<string | null>
   'app:getState': () => Promise<AppStateSnapshot>
 }
 
@@ -74,6 +121,7 @@ export interface MainToRenderer {
   'session:state': { sessionId: string; state: SessionState }
   'session:usage': { sessionId: string; usage: UsageSnapshot }
   'session:burnout': { sessionId: string; isBurnout: boolean }
+  'session:controls': { sessionId: string; controls: SessionControls }
   'session:ended': { sessionId: string; reason: string }
   'project:sessions': { projectId: string; sessionIds: string[] }
   'app:state': AppStateSnapshot

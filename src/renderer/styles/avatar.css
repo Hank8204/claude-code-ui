@@ -82,6 +82,10 @@
   border-color: var(--state-waiting);
   animation: room-waiting 1s ease-in-out infinite;
 }
+.office-room[data-state='working'],
+.office-room[data-state='committing'] {
+  border-color: var(--state-working);
+}
 .office-room[data-state='error'] {
   border-color: var(--state-error);
 }
@@ -204,6 +208,11 @@
   opacity: 1;
   transform: translate(-50%, 0);
 }
+.avatar-state[data-state='committing'] .avatar-parts::after {
+  content: '📦';
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
 .avatar-state[data-state='waiting_input'] .avatar-parts::after {
   content: '❓';
   opacity: 1;
@@ -270,6 +279,25 @@
   }
 }
 
+/* committing（spec_04 §4）：搬箱子——身體小幅上下頓、手臂前抬 */
+.avatar-state[data-state='committing'] {
+  animation: fig-commit 0.6s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes fig-commit {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+.avatar-state[data-state='committing'] .arm.left,
+.avatar-state[data-state='committing'] .arm.right {
+  transform: rotate(-60deg);
+}
+
 .avatar-state[data-state='waiting_input'] {
   animation: fig-waiting 0.3s ease-out forwards;
   will-change: transform;
@@ -318,6 +346,80 @@
   to {
     transform: rotate(3deg);
   }
+}
+
+/* spec_04 §3：常駐開關列 */
+.controls-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 8px;
+}
+.controls-bar[data-disabled='true'] {
+  opacity: 0.5;
+}
+.controls-bar .ctrl {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+.controls-bar select {
+  font-size: 10px;
+  padding: 1px 2px;
+  border-radius: 4px;
+  border: 1px solid var(--room-border);
+  background: var(--panel);
+  color: var(--text);
+}
+.controls-bar .ctrl-key[data-model='opus'] {
+  color: #a855f7;
+  font-weight: 700;
+}
+.controls-bar .ctrl-key[data-model='sonnet'] {
+  color: var(--state-working);
+  font-weight: 700;
+}
+.ctrl-toggle {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--room-border);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.ctrl-toggle[data-on='true'] {
+  border-color: var(--stamina-green);
+  color: var(--text);
+}
+.ctrl-toggle:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* spec_04 §2：一鍵指令快捷列 */
+.room-toolbar {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.room-toolbar button {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--room-border);
+  background: var(--panel);
+  cursor: pointer;
+}
+.room-toolbar button:hover {
+  border-color: var(--state-working);
+}
+.room-toolbar button.danger:hover {
+  border-color: var(--state-error);
 }
 
 /* StaminaBar（spec_02 §3C） */
@@ -400,6 +502,10 @@
   }
   .avatar-state[data-state='error'] {
     transform: rotate(90deg) translateY(10px);
+  }
+  .avatar-state[data-state='committing'] .arm.left,
+  .avatar-state[data-state='committing'] .arm.right {
+    transform: rotate(-60deg);
   }
   .avatar-state[data-state='disconnected'] {
     opacity: 0.35;

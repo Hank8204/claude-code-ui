@@ -110,6 +110,8 @@
     border-color: var(--state-waiting);
     animation: room-waiting 1s ease-in-out infinite;
   }
+  .office-room[data-state="working"],
+  .office-room[data-state="committing"] { border-color: var(--state-working); }
   .office-room[data-state="error"]        { border-color: var(--state-error); }
   .office-room[data-state="disconnected"] { filter: brightness(.6); }
 
@@ -221,6 +223,7 @@
     pointer-events: none;
   }
   .avatar-state[data-state="working"]       .avatar-parts::after { content: "📝"; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-state[data-state="committing"]    .avatar-parts::after { content: "📦"; opacity: 1; transform: translate(-50%, 0); }
   .avatar-state[data-state="waiting_input"] .avatar-parts::after { content: "❓"; opacity: 1; transform: translate(-50%, 0); }
   .avatar-state[data-state="error"]         .avatar-parts::after { content: "⚠️"; opacity: 1; transform: translate(-50%, 0); }
   .avatar-burnout[data-burnout="true"] .avatar-parts::after      { content: "🥵"; opacity: 1; transform: translate(-50%, 0); }
@@ -259,6 +262,18 @@
     from { transform: rotate(6deg); }
     to   { transform: rotate(-14deg); }
   }
+
+  /* committing（spec_04 §4）：搬箱子 — 身體上下頓、雙臂前抬 */
+  .avatar-state[data-state="committing"] {
+    animation: fig-commit .6s ease-in-out infinite;
+    will-change: transform;
+  }
+  @keyframes fig-commit {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-4px); }
+  }
+  .avatar-state[data-state="committing"] .arm.left,
+  .avatar-state[data-state="committing"] .arm.right { transform: rotate(-60deg); }
 
   /* waiting_input：放大並停住 */
   .avatar-state[data-state="waiting_input"] {
@@ -311,6 +326,8 @@
   @media (prefers-reduced-motion: reduce) {
     * { animation: none !important; transition: none !important; }
     .avatar-state[data-state="waiting_input"] { transform: scale(1.08); }
+    .avatar-state[data-state="committing"] .arm.left,
+    .avatar-state[data-state="committing"] .arm.right { transform: rotate(-60deg); }
     .avatar-state[data-state="error"]         { transform: rotate(90deg) translateY(10px); }
     .avatar-state[data-state="disconnected"]  { opacity: .35; }
     .office-room[data-state="waiting_input"]  { box-shadow: inset 0 0 22px 2px rgba(245,158,11,.55); }
@@ -436,6 +453,7 @@
     <div class="btn-row" id="stateBtns">
       <button class="state" data-state="idle" aria-pressed="true">idle</button>
       <button class="state" data-state="working" aria-pressed="false">working</button>
+      <button class="state" data-state="committing" aria-pressed="false">committing</button>
       <button class="state" data-state="waiting_input" aria-pressed="false">waiting_input</button>
       <button class="state" data-state="error" aria-pressed="false">error</button>
       <button class="state" data-state="disconnected" aria-pressed="false">disconnected</button>

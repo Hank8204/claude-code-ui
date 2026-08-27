@@ -12,6 +12,15 @@ const HOOK_TRANSITIONS: Record<string, SessionState> = {
   SessionEnd: 'disconnected'
 }
 
+/** spec_04 §4：Bash 指令觸發 committing（小人搬箱子）的特徵。 */
+const COMMIT_COMMAND = /\bgit\s+commit\b/
+
+/** 一筆 hook 事件的附帶脈絡——僅 PreToolUse 帶得到工具與指令內容。 */
+export interface HookEventContext {
+  toolName?: string
+  command?: string
+}
+
 /**
  * 單一 session 的狀態機。
  *
@@ -36,7 +45,11 @@ export class StateMachine {
   }
 
   /** 收到 hook 事件。未知事件靜默忽略。 */
-  applyHookEvent(hookEventName: string): void {
+  applyHookEvent(hookEventName: string, ctx: HookEventContext = {}): void {
+    if (hookEventName === 'PreToolUse' && isCommitCommand(ctx)) {
+      this.transition('committing')
+      return
+    }
     const next = HOOK_TRANSITIONS[hookEventName]
     if (next) this.transition(next)
   }
@@ -64,4 +77,8 @@ export class StateMachine {
     this._state = next
     this.onStateChange(next)
   }
+}
+
+function isCommitCommand(ctx: HookEventContext): boolean {
+  return ctx.toolName === 'Bash' && !!ctx.command && COMMIT_COMMAND.test(ctx.command)
 }

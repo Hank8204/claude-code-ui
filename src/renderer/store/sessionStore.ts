@@ -3,6 +3,7 @@ import type {
   AppStateSnapshot,
   ProjectSnapshot,
   SessionSnapshot,
+  SessionControls,
   UsageSnapshot,
   SessionState
 } from '@shared/types.js'
@@ -42,6 +43,10 @@ class SessionStore {
 
   patchUsage(sessionId: string, usage: UsageSnapshot): void {
     this.mutate(sessionId, (s) => ({ ...s, usage }))
+  }
+
+  patchControls(sessionId: string, controls: SessionControls): void {
+    this.mutate(sessionId, (s) => ({ ...s, controls }))
   }
 
   private mutate(

@@ -2,6 +2,10 @@ import { useState } from 'react'
 import type { SessionSnapshot } from '@shared/types.js'
 import { AgentAvatar } from './AgentAvatar.js'
 import { StaminaBar } from './StaminaBar.js'
+import { SessionControlsBar } from './SessionControlsBar.js'
+import { RoomToolbar } from './RoomToolbar.js'
+
+const LIVE_STATES = new Set(['idle', 'working', 'committing', 'waiting_input'])
 
 interface Props {
   session: SessionSnapshot
@@ -19,6 +23,8 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
     if (session.readonly || session.state === 'disconnected') return
     onOpenTerminal(session.sessionId)
   }
+
+  const isLive = LIVE_STATES.has(session.state)
 
   const commitRename = (value: string): void => {
     setEditing(false)
@@ -62,6 +68,14 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
           )}
       </div>
 
+      {!session.readonly && session.state !== 'error' && (
+        <SessionControlsBar
+          sessionId={session.sessionId}
+          controls={session.controls}
+          disabled={session.state === 'disconnected'}
+        />
+      )}
+
       <button
         type="button"
         className="room-stage"
@@ -93,6 +107,8 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
           )}
         </div>
       )}
+
+      {isLive && !session.readonly && <RoomToolbar sessionId={session.sessionId} />}
 
       <StaminaBar
         usage={session.usage}

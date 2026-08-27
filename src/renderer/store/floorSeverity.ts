@@ -13,7 +13,7 @@ function severityOf(session: SessionSnapshot): Severity {
   if (session.state === 'waiting_input') return Severity.WaitingInput
   if (session.state === 'error') return Severity.Error
   if (session.isBurnout) return Severity.Burnout
-  if (session.state === 'working') return Severity.Working
+  if (session.state === 'working' || session.state === 'committing') return Severity.Working
   return Severity.Idle
 }
 

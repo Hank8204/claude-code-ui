@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ProjectSnapshot, SessionSnapshot } from '@shared/types.js'
 import { OfficeRoom } from './OfficeRoom.js'
 import { summarizeFloor, Severity } from '../store/floorSeverity.js'
+import { readSessionDefaults } from '../store/sessionDefaults.js'
 
 interface Props {
   project: ProjectSnapshot
@@ -25,7 +26,11 @@ export function ProjectFloor({ project, sessions, onOpenTerminal }: Props): JSX.
 
   const addSession = (name?: string): void => {
     setAdding(false)
-    void window.ccui.startSession(project.projectPath, name?.trim() || undefined)
+    void window.ccui.startSession(
+      project.projectPath,
+      name?.trim() || undefined,
+      readSessionDefaults()
+    )
   }
 
   return (

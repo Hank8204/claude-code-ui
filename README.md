@@ -81,10 +81,15 @@ src/
 
 ## 里程碑
 
-* **M1**（進行中）：單一專案 PTY → xterm 可打字 → hook 通了 → 小人會動；含打包驗證
-* **M2**：transcript tail → 體力條 + `/compact` 咖啡按鈕
-* **M3**：多專案樓層、多 session、設定持久化、error / disconnected
+* **M1**（完成）：單一專案 PTY → xterm 可打字 → hook 通了 → 小人會動；含打包驗證
+* **M2**（完成）：transcript tail → 體力條 + `/compact` 咖啡按鈕
+* **M3**（大致完成）：多專案樓層、多 session、設定持久化、error / disconnected、原生資料夾選取器
+* **spec_04**（完成）：一鍵指令列（☕/🧹/⏪/🔍/🛑）、常駐開關（模型 / 思考深度 / 自動批准 / 極速）、
+  `committing` 狀態（git commit → 小人搬箱子 📦）
 * **M4**（未來）：外部 session 唯讀監看
+
+一鍵指令與常駐開關的細節、限制見 spec_04 與 [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md)
+（ISSUE-007 / 008：執行中改開關是樂觀顯示，無 CLI 確認回饋）。
 
 ## License
 

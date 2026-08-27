@@ -1,4 +1,5 @@
 import Store from 'electron-store'
+import type { SessionControls } from '@shared/types.js'
 
 /** 視窗位置與大小（spec_01 §5）。不綁 Electron 型別，方便測試。 */
 export interface WindowBounds {
@@ -21,6 +22,8 @@ export interface PersistedSession {
   sessionId: string
   projectId: string
   displayName: string
+  /** spec_04 §3：常駐開關——resume 時以啟動參數還原。 */
+  controls?: SessionControls
 }
 
 export interface WorkspaceSnapshot {
