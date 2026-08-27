@@ -54,6 +54,7 @@ export interface RendererToMain {
   'session:start': (projectPath: string, displayName?: string) => Promise<{ sessionId: string }>
   'session:rename': (sessionId: string, displayName: string) => Promise<void>
   'session:stop': (sessionId: string) => Promise<void>
+  'session:forget': (sessionId: string) => Promise<void>
   'session:restart': (sessionId: string) => Promise<{ sessionId: string }>
   'session:input': (sessionId: string, data: string) => Promise<void>
   'session:resize': (sessionId: string, cols: number, rows: number) => Promise<void>

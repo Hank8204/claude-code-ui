@@ -366,9 +366,26 @@
   border-radius: 8px;
   cursor: pointer;
 }
-.restart-btn {
+.room-actions {
+  display: flex;
+  gap: 6px;
   margin-top: 8px;
-  width: 100%;
+}
+.restart-btn {
+  flex: 1;
+}
+.forget-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--room-border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+}
+.forget-btn:hover {
+  color: var(--state-error);
+  border-color: var(--state-error);
 }
 
 /* §6.2：尊重 prefers-reduced-motion —— 停用動畫，改靜態顏色 + 氣泡 */

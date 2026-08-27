@@ -20,6 +20,7 @@ const api = {
     ipcRenderer.invoke('session:start', projectPath, displayName),
   renameSession: (id: string, name: string) => ipcRenderer.invoke('session:rename', id, name),
   stopSession: (id: string) => ipcRenderer.invoke('session:stop', id),
+  forgetSession: (id: string) => ipcRenderer.invoke('session:forget', id),
   restartSession: (id: string) => ipcRenderer.invoke('session:restart', id),
   sendInput: (id: string, data: string) => ipcRenderer.invoke('session:input', id, data),
   resize: (id: string, cols: number, rows: number) =>

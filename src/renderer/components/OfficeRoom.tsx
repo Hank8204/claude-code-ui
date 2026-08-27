@@ -74,13 +74,24 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
       </button>
 
       {(session.state === 'error' || session.state === 'disconnected') && !session.readonly && (
-        <button
-          type="button"
-          className="restart-btn"
-          onClick={() => void window.ccui.restartSession(session.sessionId)}
-        >
-          {session.state === 'error' ? '重啟' : '接回'}
-        </button>
+        <div className="room-actions">
+          <button
+            type="button"
+            className="restart-btn"
+            onClick={() => void window.ccui.restartSession(session.sessionId)}
+          >
+            {session.state === 'error' ? '重啟' : '接回'}
+          </button>
+          {session.state === 'disconnected' && (
+            <button
+              type="button"
+              className="forget-btn"
+              onClick={() => void window.ccui.forgetSession(session.sessionId)}
+            >
+              移除
+            </button>
+          )}
+        </div>
       )}
 
       <StaminaBar

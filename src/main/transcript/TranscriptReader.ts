@@ -7,6 +7,11 @@ import { buildSnapshot, emptyUsage, extractUsage } from './usage.js'
 import type { TokenUsage, UsageSnapshot } from '@shared/types.js'
 
 const PROJECTS_ROOT = join(homedir(), '.claude', 'projects')
+/** session 存活時的定位上限。 */
+const LOCATE_TIMEOUT_MS = 20 * 60 * 1000
+/** session 結束後的寬限期——互動模式 transcript 常在結束後數分鐘才寫出。 */
+const SETTLE_GRACE_MS = 6 * 60 * 1000
+const RETRY_INTERVAL_MS = 1500
 
 /**
  * Transcript JSONL 讀取器（spec_01 §3.3）。
@@ -26,18 +31,25 @@ export class TranscriptReader {
   private totalCostUsd = 0
   /** hook payload 的 transcript_path——比 glob 權威（spec_03 §3.1）。 */
   private pathHint: string | null = null
+  /** 定位重試的截止時間。互動模式 transcript 延遲數分鐘才寫出，需長時間輪詢。 */
+  private deadline = Date.now() + LOCATE_TIMEOUT_MS
+  private retryTimer: NodeJS.Timeout | null = null
 
   constructor(
     private readonly sessionId: string,
     private readonly onSnapshot: (snapshot: UsageSnapshot) => void
   ) {}
 
-  /** 以 UUID 定位 transcript 檔並開始 tail。找不到時定期重試（CLI 可能還沒建檔）。 */
+  /** 定位 transcript 並開始 tail。找不到時定期重試至 deadline（互動模式延遲寫出）。 */
   async start(): Promise<void> {
-    if (this.stopped) return
+    if (this.stopped || this.watcher) return
     this.filePath = await this.locateFile()
     if (!this.filePath) {
-      setTimeout(() => void this.start(), 1000)
+      if (Date.now() < this.deadline) {
+        this.retryTimer = setTimeout(() => void this.start(), RETRY_INTERVAL_MS)
+      } else {
+        this.log('定位逾時，放棄')
+      }
       return
     }
     this.log(`定位到 transcript：${this.filePath}`)
@@ -46,8 +58,23 @@ export class TranscriptReader {
     this.watcher.on('change', () => void this.consumeNewBytes())
   }
 
+  /**
+   * session 結束——不立即停，再盯 SETTLE_GRACE_MS 抓延遲寫出的 transcript。
+   * 已在 tail 的話再讀一次尾巴確保拿到最終 usage。
+   */
+  detach(): void {
+    this.deadline = Date.now() + SETTLE_GRACE_MS
+    if (this.watcher) {
+      void this.consumeNewBytes()
+      setTimeout(() => void this.stop(), SETTLE_GRACE_MS)
+    }
+  }
+
+  /** 立即硬停（App 關閉）。 */
   async stop(): Promise<void> {
     this.stopped = true
+    if (this.retryTimer) clearTimeout(this.retryTimer)
+    this.retryTimer = null
     await this.watcher?.close()
     this.watcher = null
   }

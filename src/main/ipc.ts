@@ -11,6 +11,7 @@ export function registerIpcHandlers(manager: SessionManager): void {
   )
   ipcMain.handle('session:rename', (_e, id: string, name: string) => manager.rename(id, name))
   ipcMain.handle('session:stop', (_e, id: string) => manager.stop(id))
+  ipcMain.handle('session:forget', (_e, id: string) => manager.forget(id))
   ipcMain.handle('session:restart', (_e, id: string) => manager.restart(id))
   ipcMain.handle('session:input', (_e, id: string, data: string) => manager.input(id, data))
   ipcMain.handle('session:resize', (_e, id: string, cols: number, rows: number) =>

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import { ClaudeSession } from './ClaudeSession.js'
+import { TranscriptReader } from '../transcript/TranscriptReader.js'
 import { resolveClaudeEnv, type ClaudeEnv } from '../cli-resolver.js'
 import { SessionNotFoundError } from '../errors.js'
 import type { HookEvent } from '../bridge/HookBridgeServer.js'
@@ -13,7 +14,8 @@ import type {
   AppStateSnapshot,
   MainToRenderer,
   ProjectSnapshot,
-  SessionSnapshot
+  SessionSnapshot,
+  UsageSnapshot
 } from '@shared/types.js'
 
 type Emit = <C extends keyof MainToRenderer>(channel: C, payload: MainToRenderer[C]) => void
@@ -33,6 +35,9 @@ export class SessionManager {
   private readonly projects = new Map<string, ProjectRecord>()
   private readonly sessions = new Map<string, ClaudeSession>()
   private readonly dormant = new Map<string, PersistedSession>()
+  /** 休眠 session 的 transcript reader——抓延遲寫出的 transcript、補上 usage。 */
+  private readonly dormantReaders = new Map<string, TranscriptReader>()
+  private readonly dormantUsage = new Map<string, UsageSnapshot>()
   private claudeEnv: ClaudeEnv | null = null
   private foregroundId: string | null = null
 
@@ -47,8 +52,32 @@ export class SessionManager {
     const { projects, sessions } = this.workspace.load()
     for (const project of projects) this.projects.set(project.projectId, { ...project })
     for (const session of sessions) {
-      if (this.projects.has(session.projectId)) this.dormant.set(session.sessionId, session)
+      if (!this.projects.has(session.projectId)) continue
+      this.dormant.set(session.sessionId, session)
+      this.attachDormantReader(session.sessionId)
     }
+  }
+
+  /** 讓休眠工位的 transcript reader 繼續盯——互動模式 transcript 延遲寫出。 */
+  private attachDormantReader(sessionId: string): void {
+    const reader = new TranscriptReader(sessionId, (snap) => {
+      this.dormantUsage.set(sessionId, snap)
+      this.emitAppState()
+    })
+    this.dormantReaders.set(sessionId, reader)
+    void reader.start()
+  }
+
+  /** 使用者移除一個休眠工位（M1：目前只能移除 disconnected 的）。 */
+  async forget(sessionId: string): Promise<void> {
+    const record = this.dormant.get(sessionId)
+    if (!record) throw new SessionNotFoundError(sessionId)
+    await this.dormantReaders.get(sessionId)?.stop()
+    this.dormantReaders.delete(sessionId)
+    this.dormantUsage.delete(sessionId)
+    this.dormant.delete(sessionId)
+    this.persist()
+    this.broadcastProjectSessions(record.projectId)
   }
 
   async start(projectPath: string, displayName?: string): Promise<{ sessionId: string }> {
@@ -81,6 +110,8 @@ export class SessionManager {
     await this.sessions.get(sessionId)?.dispose('restart')
     this.sessions.delete(sessionId)
     this.dormant.delete(sessionId)
+    await this.dormantReaders.get(sessionId)?.stop()
+    this.dormantReaders.delete(sessionId)
 
     const revived = new ClaudeSession({
       ...target,
@@ -158,8 +189,12 @@ export class SessionManager {
 
   async disposeAll(): Promise<void> {
     this.persist() // 關閉前把最新狀態寫下
-    await Promise.all([...this.sessions.values()].map((s) => s.dispose('app-quit')))
+    await Promise.all([
+      ...[...this.sessions.values()].map((s) => s.dispose('app-quit', true)),
+      ...[...this.dormantReaders.values()].map((r) => r.stop())
+    ])
     this.sessions.clear()
+    this.dormantReaders.clear()
   }
 
   private register(session: ClaudeSession): void {
@@ -235,19 +270,21 @@ export class SessionManager {
       readonly: false,
       state: 'disconnected',
       isBurnout: false,
-      usage: null
+      usage: this.dormantUsage.get(session.sessionId) ?? null
     }
   }
 
-  /** 只持久化「已可 --resume」的 session——避免存下從未產生對話的幽靈工位。 */
+  /**
+   * 持久化所有 session。互動模式 transcript 延遲寫出，無法在 start 當下判斷是否
+   * 可 resume，因此全部存下；接不回的靠 `--resume` fallback 全新重生，多餘的靠
+   * 「移除」按鈕清掉。
+   */
   private persist(): void {
-    const live: PersistedSession[] = [...this.sessions.values()]
-      .filter((s) => s.isResumable)
-      .map((s) => ({
-        sessionId: s.sessionId,
-        projectId: s.projectId,
-        displayName: s.displayName
-      }))
+    const live: PersistedSession[] = [...this.sessions.values()].map((s) => ({
+      sessionId: s.sessionId,
+      projectId: s.projectId,
+      displayName: s.displayName
+    }))
     this.workspace.save({
       projects: [...this.projects.values()],
       sessions: [...live, ...this.dormant.values()]

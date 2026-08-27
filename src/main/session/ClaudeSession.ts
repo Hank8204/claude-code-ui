@@ -137,20 +137,25 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     }
   }
 
-  async dispose(reason: string): Promise<void> {
+  /**
+   * @param hard App 關閉時為 true——立即停掉 transcript reader；
+   *   否則（使用者停止 / 重啟）讓 reader 續盯數分鐘抓延遲寫出的 transcript。
+   */
+  async dispose(reason: string, hard = false): Promise<void> {
     if (this.disposed) return
     this.disposed = true
     await this.shutdownPty()
     this.batcher.flush()
     this.batcher.dispose()
-    await this.transcript.stop()
+    if (hard) await this.transcript.stop()
+    else this.transcript.detach()
     this.state.markEnded()
     this.emit('ended', reason)
   }
 
   /**
-   * 優雅關閉 PTY：先送 /exit 讓 claude 有機會 flush transcript，逾時才強制 kill。
-   * claude 互動模式對 SIGHUP 不會寫出 transcript，直接 kill 會遺失 usage 資料。
+   * 優雅關閉 PTY：先送 /exit，逾時才強制 kill。
+   * claude 互動模式對 SIGHUP 不寫 transcript；/exit 也只是讓它「開始」延遲寫出。
    */
   private async shutdownPty(): Promise<void> {
     const pty = this.pty

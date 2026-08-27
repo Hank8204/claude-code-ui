@@ -1,6 +1,15 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { SessionManager } from './SessionManager.js'
 import type { WorkspacePort, WorkspaceSnapshot } from '../config/store.js'
+
+const managers: SessionManager[] = []
+function track(mgr: SessionManager): SessionManager {
+  managers.push(mgr)
+  return mgr
+}
+afterEach(async () => {
+  await Promise.all(managers.splice(0).map((m) => m.disposeAll()))
+})
 
 /** In-memory WorkspacePort，load 永遠回傳最近一次 save 的內容。 */
 function fakeWorkspace(initial: WorkspaceSnapshot): WorkspacePort {
@@ -18,7 +27,7 @@ const SESSION = { sessionId: 's1', projectId: 'p1', displayName: 'proj #1' }
 
 describe('SessionManager 持久化（spec_01 §5）', () => {
   it('restore 後 getState 帶回專案，休眠 session 顯示為 disconnected 工位', () => {
-    const mgr = new SessionManager(vi.fn(), fakeWorkspace({ projects: [PROJECT], sessions: [SESSION] }))
+    const mgr = track(new SessionManager(vi.fn(), fakeWorkspace({ projects: [PROJECT], sessions: [SESSION] })))
     mgr.restore()
 
     const state = mgr.getState()
@@ -39,7 +48,7 @@ describe('SessionManager 持久化（spec_01 §5）', () => {
       projects: [PROJECT],
       sessions: [{ sessionId: 'orphan', projectId: 'ghost', displayName: 'x' }]
     })
-    const mgr = new SessionManager(vi.fn(), ws)
+    const mgr = track(new SessionManager(vi.fn(), ws))
     mgr.restore()
     expect(mgr.getState().sessions).toHaveLength(0)
   })
@@ -47,7 +56,7 @@ describe('SessionManager 持久化（spec_01 §5）', () => {
   it('改休眠 session 的名字會寫回持久化並廣播 app:state', () => {
     const ws = fakeWorkspace({ projects: [PROJECT], sessions: [SESSION] })
     const emit = vi.fn()
-    const mgr = new SessionManager(emit, ws)
+    const mgr = track(new SessionManager(emit, ws))
     mgr.restore()
 
     mgr.rename('s1', '重要的那個')
@@ -58,13 +67,13 @@ describe('SessionManager 持久化（spec_01 §5）', () => {
   })
 
   it('rename 不存在的 session 丟 SessionNotFoundError', () => {
-    const mgr = new SessionManager(vi.fn(), fakeWorkspace({ projects: [], sessions: [] }))
+    const mgr = track(new SessionManager(vi.fn(), fakeWorkspace({ projects: [], sessions: [] })))
     mgr.restore()
     expect(() => mgr.rename('nope', 'x')).toThrow(/找不到 session/)
   })
 
   it('setForeground 對休眠 session 會拒絕（休眠 session 沒有 PTY 可轉發輸出）', () => {
-    const mgr = new SessionManager(vi.fn(), fakeWorkspace({ projects: [PROJECT], sessions: [SESSION] }))
+    const mgr = track(new SessionManager(vi.fn(), fakeWorkspace({ projects: [PROJECT], sessions: [SESSION] })))
     mgr.restore()
     expect(() => mgr.setForeground('s1')).toThrow(/找不到 session/)
     expect(() => mgr.setForeground(null)).not.toThrow()
