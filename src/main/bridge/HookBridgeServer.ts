@@ -48,9 +48,15 @@ export class HookBridgeServer {
     await rm(BRIDGE_FILE, { force: true })
   }
 
-  private get port(): number {
+  /** 系統指派的 port；未啟動時為 0。與 bridge.json 內容一致。 */
+  get port(): number {
     const addr = this.server?.address()
     return addr && typeof addr === 'object' ? addr.port : 0
+  }
+
+  /** 本次啟動的驗證 token。與 bridge.json 內容一致。 */
+  get authToken(): string {
+    return this.token
   }
 
   private async writeBridgeFile(): Promise<void> {
