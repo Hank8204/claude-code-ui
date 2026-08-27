@@ -1,6 +1,9 @@
 node_modules/
 .obsidian/
 *.orig
+
+# 設計規格文件：本機保留，不進版控（未來存 Google Drive）
+spec_*.md
 out/
 dist/
 *.log

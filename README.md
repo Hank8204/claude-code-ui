@@ -51,12 +51,6 @@ npm run package         # 打包出 release/mac/*.app（本機 build，ad-hoc �
 
 ## 架構
 
-三份規格文件在 repo 根目錄：
-
-* `spec_01_main_process.md` — Electron 主進程、session 管理、PTY、打包
-* `spec_02_renderer_ui.md` — React 渲染進程、小人 UI、純 CSS 動畫
-* `spec_03_hooks_bridge.md` — Hooks 事件橋接、HTTP server、settings.json 生命週期
-
 核心設計：**畫面與狀態分離**。PTY 輸出只負責 xterm.js 顯示；狀態由 hooks 經
 `127.0.0.1` 送回主進程；量化資料（token / cost）由 tail transcript JSONL 取得。
 Renderer 不做任何文字解析。
