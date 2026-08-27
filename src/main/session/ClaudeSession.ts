@@ -14,6 +14,8 @@ export interface SessionConfig {
   cliPath: string
   /** resume 既有 session 時帶入。 */
   resume?: boolean
+  /** 外部監看 session（無 PTY handle，不可輸入）。PTY 死掉不算——那是 disconnected。 */
+  readonly?: boolean
 }
 
 interface SessionEvents {
@@ -73,7 +75,7 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   }
 
   get isReadonly(): boolean {
-    return this.pty === null
+    return this.config.readonly ?? false
   }
 
   /** transcript 已存在——這個 session 現在可以被 `claude --resume` 接回。 */
@@ -147,6 +149,7 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
       : ['--session-id', this.sessionId, '--name', this.displayName]
 
     this.spawnedAt = Date.now()
+    this.log(`spawn ${this.config.cliPath} ${args.join(' ')}`)
     this.pty = spawn(this.config.cliPath, args, {
       name: 'xterm-256color',
       cols: 80,
@@ -163,25 +166,31 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     if (this.disposed) return
     this.pty = null
     this.batcher.flush()
+    const aliveMs = Date.now() - this.spawnedAt
+    this.log(`pty exit code=${exitCode} aliveMs=${aliveMs}`)
 
-    if (exitCode === 0) {
-      this.state.markEnded()
-      this.emit('ended', 'exit')
-      return
-    }
-    if (this.shouldRetryWithoutResume()) {
-      this.resumeFailed = true // 對話不存在（例如從未送過訊息就被關）→ 以全新 session 重生
+    // resume 後很快退出 = 對話不存在（不論 exit code）→ 以全新 session 重生一次
+    if (this.shouldRetryWithoutResume(aliveMs)) {
+      this.log('resume 疑似失敗，改用 --session-id 全新重生')
+      this.resumeFailed = true
       this.spawnPty()
       return
     }
-    this.state.markPtyCrashed() // 非預期退出 → error，保留工位
+    if (exitCode === 0) {
+      this.state.markEnded()
+      this.emit('ended', 'exit')
+    } else {
+      this.state.markPtyCrashed() // 非預期退出 → error，保留工位
+    }
   }
 
-  private shouldRetryWithoutResume(): boolean {
+  private shouldRetryWithoutResume(aliveMs: number): boolean {
     return (
-      Boolean(this.config.resume) &&
-      !this.resumeFailed &&
-      Date.now() - this.spawnedAt < RESUME_FALLBACK_WINDOW_MS
+      Boolean(this.config.resume) && !this.resumeFailed && aliveMs < RESUME_FALLBACK_WINDOW_MS
     )
+  }
+
+  private log(message: string): void {
+    console.error(`[session ${this.sessionId.slice(0, 8)}] ${message}`)
   }
 }

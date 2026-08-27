@@ -19,6 +19,7 @@ export class TranscriptReader {
   private filePath: string | null = null
   private offset = 0
   private pending = ''
+  private stopped = false
 
   private lastModel: string | null = null
   private lastUsage: TokenUsage = emptyUsage()
@@ -31,19 +32,26 @@ export class TranscriptReader {
 
   /** 以 UUID 定位 transcript 檔並開始 tail。找不到時定期重試（CLI 可能還沒建檔）。 */
   async start(): Promise<void> {
+    if (this.stopped) return
     this.filePath = await this.locateFile()
     if (!this.filePath) {
       setTimeout(() => void this.start(), 1000)
       return
     }
+    this.log(`定位到 transcript：${this.filePath}`)
     await this.consumeNewBytes()
     this.watcher = chokidar.watch(this.filePath, { ignoreInitial: true })
     this.watcher.on('change', () => void this.consumeNewBytes())
   }
 
   async stop(): Promise<void> {
+    this.stopped = true
     await this.watcher?.close()
     this.watcher = null
+  }
+
+  private log(message: string): void {
+    console.error(`[transcript ${this.sessionId.slice(0, 8)}] ${message}`)
   }
 
   /** glob ~/.claude/projects/*\/<sessionId>.jsonl —— UUID 全域唯一，不需反推 cwd 目錄。 */
@@ -94,7 +102,9 @@ export class TranscriptReader {
       if (this.applyLine(line)) changed = true
     }
     if (changed) {
-      this.onSnapshot(buildSnapshot(this.lastModel, this.lastUsage, this.totalCostUsd))
+      const snapshot = buildSnapshot(this.lastModel, this.lastUsage, this.totalCostUsd)
+      this.log(`snapshot model=${snapshot.model} contextRatio=${snapshot.contextRatio}`)
+      this.onSnapshot(snapshot)
     }
   }
 
