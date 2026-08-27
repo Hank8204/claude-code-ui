@@ -158,20 +158,51 @@ body {
   padding: 16px;
 }
 
-/* TerminalView 彈窗（spec_02 §3E） */
+/* TerminalView 彈窗（spec_02 §3E）——可停靠右側或下方、可拖曳邊界 */
 .terminal-overlay {
   position: fixed;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  width: min(760px, 80vw);
   background: #0b0e14;
-  border-left: 1px solid var(--room-border);
   display: flex;
   flex-direction: column;
   z-index: 50;
+}
+.terminal-overlay[data-dock='right'] {
+  right: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid var(--room-border);
   box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
 }
+.terminal-overlay[data-dock='bottom'] {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-top: 1px solid var(--room-border);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.terminal-resizer {
+  position: absolute;
+  z-index: 1;
+}
+.terminal-resizer[data-dock='right'] {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+}
+.terminal-resizer[data-dock='bottom'] {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 6px;
+  cursor: row-resize;
+}
+.terminal-resizer:hover {
+  background: var(--state-working);
+}
+
 .terminal-titlebar {
   display: flex;
   justify-content: space-between;
@@ -181,11 +212,19 @@ body {
   font-size: 12px;
   border-bottom: 1px solid #1d2531;
 }
+.terminal-actions {
+  display: flex;
+  gap: 10px;
+}
 .terminal-titlebar button {
   background: none;
   border: none;
   color: #cdd6e4;
   cursor: pointer;
+  font-size: 12px;
+}
+.terminal-titlebar button:hover {
+  color: #fff;
 }
 .terminal-host {
   flex: 1;
