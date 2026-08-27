@@ -1,0 +1,54 @@
+<!-- @dsCard group="Components" name="RoomToolbar — 一鍵指令列" subtitle="spec_04 §2：/compact /rewind /review Ctrl-C" -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RoomToolbar</title>
+<style>
+  :root {
+    --bg: #eef1f5; --panel: #fff; --text: #1c2430; --text-dim: #64748b;
+    --room-bg: #e2e8f0; --room-border: #cbd5e1;
+    --state-working: #3b82f6; --state-error: #ef4444;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141b; --panel: #1a222d; --text: #e6edf3; --text-dim: #8b98a8;
+      --room-bg: #1e2733; --room-border: #33404f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); padding: 24px;
+    font-family: -apple-system, "SF Pro Text", "PingFang TC", sans-serif;
+  }
+  .card {
+    border: 1px solid var(--room-border); border-radius: 12px; background: var(--room-bg);
+    padding: 12px; max-width: 280px;
+  }
+  .caption { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+
+  /* ---- 複製自 src/renderer/styles/avatar.css ---- */
+  .room-toolbar { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0; }
+  .room-toolbar button {
+    flex: 1 1 auto; padding: 4px 6px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10px; color: var(--text-dim);
+    border-radius: 6px; border: 1px solid var(--room-border); background: var(--panel);
+    cursor: pointer; white-space: nowrap;
+  }
+  .room-toolbar button:hover { color: var(--text); border-color: var(--state-working); }
+  .room-toolbar button.danger:hover { color: var(--state-error); border-color: var(--state-error); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="caption">工位底部快捷列（一律走 PTY，樂觀執行）</div>
+    <div class="room-toolbar">
+      <button title="壓縮記憶">/compact</button>
+      <button title="時光倒流">/rewind</button>
+      <button title="程式碼審查">/review</button>
+      <button class="danger" title="緊急中斷（送 Ctrl-C）">Ctrl-C</button>
+    </div>
+  </div>
+</body>
+</html>

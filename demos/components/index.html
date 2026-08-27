@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Claude Code UI · 元件預覽</title>
+<style>
+  :root { --bg: #eef1f5; --panel: #fff; --text: #1c2430; --text-dim: #64748b; --border: #cbd5e1; --link: #3b82f6; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f141b; --panel: #1a222d; --text: #e6edf3; --text-dim: #8b98a8; --border: #33404f; }
+  }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); padding: 32px;
+    font-family: -apple-system, "SF Pro Text", "PingFang TC", sans-serif;
+  }
+  h1 { font-size: 18px; }
+  p { color: var(--text-dim); font-size: 13px; max-width: 560px; }
+  ul { list-style: none; padding: 0; max-width: 560px; }
+  li { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; }
+  a { display: block; padding: 12px 14px; color: var(--link); text-decoration: none; font-weight: 600; }
+  a small { display: block; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <h1>Claude Code UI · 元件預覽</h1>
+  <p>
+    每個檔案都是自帶樣式的 standalone preview，CSS 直接複製自
+    <code>src/renderer/styles/avatar.css</code> / <code>global.css</code>。
+    首行 <code>@dsCard</code> 註解供 Claude Design（<code>/design-sync</code>）建立卡片索引。
+  </p>
+  <ul>
+    <li><a href="avatar.html">AgentAvatar<small>6 狀態 + burnout 小人動畫</small></a></li>
+    <li><a href="office-room.html">OfficeRoom<small>完整工位卡片：working / waiting / burnout / committing / disconnected</small></a></li>
+    <li><a href="session-controls.html">SessionControlsBar<small>spec_04 §3 常駐開關列</small></a></li>
+    <li><a href="room-toolbar.html">RoomToolbar<small>spec_04 §2 一鍵指令列</small></a></li>
+    <li><a href="stamina-bar.html">StaminaBar<small>體力條 6 種區間</small></a></li>
+  </ul>
+</body>
+</html>

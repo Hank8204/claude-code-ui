@@ -1,0 +1,102 @@
+<!-- @dsCard group="Components" name="SessionControlsBar — 常駐開關" subtitle="spec_04 §3：模型 / 深度 一列、自動批准 / 極速 一列" -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SessionControlsBar</title>
+<style>
+  :root {
+    --bg: #eef1f5; --panel: #fff; --text: #1c2430; --text-dim: #64748b;
+    --room-bg: #e2e8f0; --room-border: #cbd5e1;
+    --state-working: #3b82f6; --stamina-green: #22c55e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141b; --panel: #1a222d; --text: #e6edf3; --text-dim: #8b98a8;
+      --room-bg: #1e2733; --room-border: #33404f;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); padding: 24px;
+    font-family: -apple-system, "SF Pro Text", "PingFang TC", sans-serif;
+  }
+  .list { display: flex; flex-direction: column; gap: 16px; max-width: 280px; }
+  .card { border: 1px solid var(--room-border); border-radius: 12px; background: var(--room-bg); padding: 12px; }
+  .card > .caption { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+
+  /* ---- 複製自 src/renderer/styles/avatar.css ---- */
+  .controls-bar { margin-bottom: 0; }
+  .controls-bar[data-disabled='true'] { opacity: .5; }
+  .controls-row { display: flex; gap: 6px; margin-bottom: 4px; }
+  .controls-row:last-child { margin-bottom: 0; }
+  .controls-bar .ctrl {
+    flex: 1; display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-dim);
+  }
+  .controls-bar select {
+    flex: 1; min-width: 0; font-size: 10px; padding: 2px 2px; border-radius: 4px;
+    border: 1px solid var(--room-border); background: var(--panel); color: var(--text);
+  }
+  .controls-bar .ctrl-key[data-model='opus'] { color: #a855f7; font-weight: 700; }
+  .controls-bar .ctrl-key[data-model='sonnet'] { color: var(--state-working); font-weight: 700; }
+  .ctrl-toggle {
+    flex: 1; font-size: 10px; padding: 3px 6px; border-radius: 999px;
+    border: 1px solid var(--room-border); background: var(--panel); color: var(--text-dim);
+    cursor: pointer; white-space: nowrap;
+  }
+  .ctrl-toggle[data-on='true'] { border-color: var(--stamina-green); color: var(--text); }
+</style>
+</head>
+<body>
+  <div class="list">
+    <div class="card">
+      <div class="caption">預設（default / 無深度 / 需確認）</div>
+      <div class="controls-bar">
+        <div class="controls-row">
+          <label class="ctrl"><span class="ctrl-key" data-model="default">模型</span>
+            <select><option>預設</option></select></label>
+          <label class="ctrl"><span class="ctrl-key">深度</span>
+            <select><option>預設</option></select></label>
+        </div>
+        <div class="controls-row">
+          <button class="ctrl-toggle" data-on="false">⚪ 需確認</button>
+          <button class="ctrl-toggle" data-on="false">⚡ 一般</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="caption">Opus + high + 自動批准 + 極速</div>
+      <div class="controls-bar">
+        <div class="controls-row">
+          <label class="ctrl"><span class="ctrl-key" data-model="opus">模型</span>
+            <select><option>Opus</option></select></label>
+          <label class="ctrl"><span class="ctrl-key">深度</span>
+            <select><option>high</option></select></label>
+        </div>
+        <div class="controls-row">
+          <button class="ctrl-toggle" data-on="true">🟢 自動批准</button>
+          <button class="ctrl-toggle" data-on="true">⚡ 極速</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="caption">disconnected（disabled，半透明）</div>
+      <div class="controls-bar" data-disabled="true">
+        <div class="controls-row">
+          <label class="ctrl"><span class="ctrl-key" data-model="sonnet">模型</span>
+            <select disabled><option>Sonnet</option></select></label>
+          <label class="ctrl"><span class="ctrl-key">深度</span>
+            <select disabled><option>medium</option></select></label>
+        </div>
+        <div class="controls-row">
+          <button class="ctrl-toggle" data-on="false" disabled>⚪ 需確認</button>
+          <button class="ctrl-toggle" data-on="false" disabled>⚡ 一般</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

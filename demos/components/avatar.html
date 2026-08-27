@@ -1,0 +1,156 @@
+<!-- @dsCard group="Avatar" name="AgentAvatar — 狀態" subtitle="idle / working / committing / waiting_input / error / disconnected + burnout" -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AgentAvatar</title>
+<style>
+  :root {
+    --bg: #eef1f5; --panel: #fff; --text: #1c2430; --text-dim: #64748b;
+    --room-bg: #e2e8f0; --room-border: #cbd5e1;
+    --figure-light: #fff; --figure-mid: #e9edf3; --figure-dark: #c4ccd8;
+    --ground-shadow: rgba(30, 41, 59, .28);
+    --state-working: #3b82f6; --state-waiting: #f59e0b; --state-error: #ef4444; --burnout: #ef4444;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141b; --panel: #1a222d; --text: #e6edf3; --text-dim: #8b98a8;
+      --room-bg: #1e2733; --room-border: #33404f;
+      --figure-mid: #dfe5ee; --figure-dark: #aab4c4; --ground-shadow: rgba(0, 0, 0, .55);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, "SF Pro Text", "PingFang TC", sans-serif;
+    padding: 24px;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 18px; max-width: 900px;
+  }
+  .cell {
+    border: 1px solid var(--room-border); border-radius: 12px; background: var(--room-bg);
+    padding: 12px; text-align: center;
+  }
+  .cell h3 { margin: 0 0 4px; font-size: 12px; }
+  .cell p { margin: 0 0 10px; font-size: 10px; color: var(--text-dim); }
+  .stage { position: relative; height: 150px; }
+
+  /* ---- 以下複製自 src/renderer/styles/avatar.css（純 transform / opacity） ---- */
+  .avatar-anchor {
+    position: absolute; left: 50%; bottom: 20px; transform: translateX(-50%);
+    width: 72px; height: 110px;
+  }
+  .ground-shadow {
+    position: absolute; left: 50%; bottom: -6px; width: 60px; height: 16px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, var(--ground-shadow) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+  .ground-shadow[data-state='idle'] { animation: shadow-idle 3s ease-in-out infinite alternate; }
+  .avatar-burnout, .avatar-state { width: 100%; height: 100%; transform-origin: 50% 90%; }
+  .avatar-parts { position: absolute; inset: 0; }
+  .head {
+    position: absolute; left: 50%; top: 0; width: 34px; height: 34px; transform: translateX(-50%);
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
+    box-shadow: inset -3px -4px 6px rgba(0, 0, 0, .12);
+  }
+  .body {
+    position: absolute; left: 50%; top: 30px; width: 44px; height: 62px; transform: translateX(-50%);
+    border-radius: 22px 22px 16px 16px;
+    background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
+    box-shadow: inset -4px -5px 9px rgba(0, 0, 0, .14);
+  }
+  .arm {
+    position: absolute; top: 34px; width: 12px; height: 44px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--figure-light), var(--figure-dark));
+    box-shadow: inset -2px -2px 4px rgba(0, 0, 0, .12);
+  }
+  .arm.left { left: 6px; transform-origin: 50% 6px; }
+  .arm.right { right: 6px; transform-origin: 50% 6px; }
+
+  .avatar-parts::after {
+    content: ''; position: absolute; left: 50%; top: -30px; transform: translate(-50%, 6px);
+    font-size: 20px; opacity: 0; transition: opacity .3s ease, transform .3s ease; pointer-events: none;
+  }
+  .avatar-state[data-state='working'] .avatar-parts::after { content: '📝'; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-state[data-state='committing'] .avatar-parts::after { content: '📦'; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-state[data-state='waiting_input'] .avatar-parts::after { content: '❓'; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-state[data-state='error'] .avatar-parts::after { content: '⚠️'; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-burnout[data-burnout='true'] .avatar-parts::after { content: '🥵'; opacity: 1; transform: translate(-50%, 0); }
+
+  .avatar-state[data-state='idle'] { animation: fig-idle 3s ease-in-out infinite alternate; }
+  @keyframes fig-idle { from { transform: translateY(0); } to { transform: translateY(-3px); } }
+  @keyframes shadow-idle {
+    from { transform: translateX(-50%) scale(1); opacity: .9; }
+    to { transform: translateX(-50%) scale(.82); opacity: .6; }
+  }
+  .avatar-state[data-state='working'] { animation: fig-working .12s steps(2, end) infinite; }
+  @keyframes fig-working { 0% { transform: translateX(-1px); } 100% { transform: translateX(1px); } }
+  .avatar-state[data-state='working'] .arm.left { animation: arm-work .5s ease-in-out infinite alternate; }
+  .avatar-state[data-state='working'] .arm.right { animation: arm-work .5s ease-in-out infinite alternate reverse; }
+  @keyframes arm-work { from { transform: rotate(6deg); } to { transform: rotate(-14deg); } }
+
+  .avatar-state[data-state='committing'] { animation: fig-commit .6s ease-in-out infinite; }
+  @keyframes fig-commit { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  .avatar-state[data-state='committing'] .arm.left,
+  .avatar-state[data-state='committing'] .arm.right { transform: rotate(-60deg); }
+
+  .avatar-state[data-state='waiting_input'] { animation: fig-waiting .3s ease-out forwards; }
+  @keyframes fig-waiting { from { transform: scale(1); } to { transform: scale(1.08); } }
+
+  .avatar-state[data-state='error'] { animation: fig-error .4s ease-in forwards; filter: grayscale(1); }
+  @keyframes fig-error { from { transform: rotate(0); } to { transform: rotate(90deg) translateY(10px); } }
+
+  .avatar-state[data-state='disconnected'] { animation: fig-disc .6s ease forwards; }
+  @keyframes fig-disc { to { opacity: .35; } }
+
+  .avatar-burnout[data-burnout='true'] { animation: fig-burnout .25s ease-in-out infinite alternate; }
+  @keyframes fig-burnout { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cell *, .cell { animation: none !important; transition: none !important; }
+    .avatar-state[data-state='waiting_input'] { transform: scale(1.08); }
+    .avatar-state[data-state='error'] { transform: rotate(90deg) translateY(10px); }
+    .avatar-state[data-state='committing'] .arm.left,
+    .avatar-state[data-state='committing'] .arm.right { transform: rotate(-60deg); }
+    .avatar-state[data-state='disconnected'] { opacity: .35; }
+  }
+</style>
+</head>
+<body>
+  <div class="grid" id="grid"></div>
+  <script>
+    const VARIANTS = [
+      ['idle', 'false', '發呆', '緩慢呼吸浮動'],
+      ['working', 'false', '工作中', '高頻微震 + 手臂擺動，📝'],
+      ['committing', 'false', 'committing', 'git commit → 搬箱子，📦'],
+      ['waiting_input', 'false', '等待確認', '放大停住，❓'],
+      ['error', 'false', '異常', '倒下 + 灰階，⚠️'],
+      ['disconnected', 'false', '已中斷', '淡出至 35%'],
+      ['working', 'true', 'burnout', 'context > 80%，左右搖晃，🥵']
+    ]
+    document.getElementById('grid').innerHTML = VARIANTS.map(([s, b, title, desc]) => `
+      <div class="cell">
+        <h3>${title}</h3>
+        <p>${desc}</p>
+        <div class="stage">
+          <div class="avatar-anchor">
+            <div class="avatar-burnout" data-burnout="${b}">
+              <div class="avatar-state" data-state="${s}">
+                <div class="avatar-parts">
+                  <div class="head"></div><div class="body"></div>
+                  <div class="arm left"></div><div class="arm right"></div>
+                </div>
+              </div>
+            </div>
+            <div class="ground-shadow" data-state="${s}"></div>
+          </div>
+        </div>
+      </div>`).join('')
+  </script>
+</body>
+</html>
