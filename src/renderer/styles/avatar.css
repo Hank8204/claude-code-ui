@@ -412,22 +412,28 @@
 /* spec_04 §2：一鍵指令快捷列 */
 .room-toolbar {
   display: flex;
-  gap: 6px;
+  flex-wrap: wrap;
+  gap: 4px;
   margin-top: 8px;
 }
 .room-toolbar button {
-  flex: 1;
-  padding: 5px 0;
-  font-size: 14px;
-  border-radius: 8px;
+  flex: 1 1 auto;
+  padding: 4px 6px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  color: var(--text-dim);
+  border-radius: 6px;
   border: 1px solid var(--room-border);
   background: var(--panel);
   cursor: pointer;
+  white-space: nowrap;
 }
 .room-toolbar button:hover {
+  color: var(--text);
   border-color: var(--state-working);
 }
 .room-toolbar button.danger:hover {
+  color: var(--state-error);
   border-color: var(--state-error);
 }
 
