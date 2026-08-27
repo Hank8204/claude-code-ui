@@ -1,0 +1,5 @@
+{
+  "projectId": "81505fe4-3cbb-4c24-8f76-c5d1d5470537",
+  "mode": "hand-authored-cards",
+  "note": "claude-code-ui 是 Electron app、非元件庫（無 dist/exports/Storybook），不跑 package-build 轉換器。此專案只推 demos/components/*.html 手工預覽卡片。"
+}
