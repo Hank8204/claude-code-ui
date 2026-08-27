@@ -29,64 +29,68 @@ export function SessionControlsBar({ sessionId, controls, disabled }: Props): JS
 
   return (
     <div className="controls-bar" data-disabled={disabled}>
-      <label className="ctrl" title="思考模型（/model）">
-        <span className="ctrl-key" data-model={controls.model}>
-          模型
-        </span>
-        <select
-          value={controls.model}
-          disabled={disabled}
-          onChange={(e) => patch({ model: e.target.value as ModelChoice })}
-        >
-          {MODELS.map((m) => (
-            <option key={m} value={m}>
-              {MODEL_LABEL[m]}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="controls-row">
+        <label className="ctrl" title="思考模型（/model）">
+          <span className="ctrl-key" data-model={controls.model}>
+            模型
+          </span>
+          <select
+            value={controls.model}
+            disabled={disabled}
+            onChange={(e) => patch({ model: e.target.value as ModelChoice })}
+          >
+            {MODELS.map((m) => (
+              <option key={m} value={m}>
+                {MODEL_LABEL[m]}
+              </option>
+            ))}
+          </select>
+        </label>
 
-      <button
-        type="button"
-        className="ctrl-toggle"
-        data-on={controls.autoApprove}
-        disabled={disabled}
-        title="自動批准模式（bypassPermissions）。執行中僅送 Shift-Tab 最佳努力切換。"
-        onClick={() => patch({ autoApprove: !controls.autoApprove })}
-      >
-        {controls.autoApprove ? '🟢 自動批准' : '⚪ 需確認'}
-      </button>
+        <label className="ctrl" title="思考深度（/effort）">
+          <span className="ctrl-key">深度</span>
+          <select
+            value={controls.effort ?? ''}
+            disabled={disabled}
+            onChange={(e) =>
+              patch({ effort: e.target.value ? (e.target.value as EffortLevel) : null })
+            }
+          >
+            <option value="">預設</option>
+            {EFFORTS.map((lvl) => (
+              <option key={lvl} value={lvl}>
+                {lvl}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
-      <label className="ctrl" title="思考深度（/effort）">
-        <span className="ctrl-key">深度</span>
-        <select
-          value={controls.effort ?? ''}
-          disabled={disabled}
-          onChange={(e) =>
-            patch({ effort: e.target.value ? (e.target.value as EffortLevel) : null })
-          }
-        >
-          <option value="">預設</option>
-          {EFFORTS.map((lvl) => (
-            <option key={lvl} value={lvl}>
-              {lvl}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      {fastAvailable && (
+      <div className="controls-row">
         <button
           type="button"
           className="ctrl-toggle"
-          data-on={controls.fast}
+          data-on={controls.autoApprove}
           disabled={disabled}
-          title="極速模式（/fast，Opus 專屬）"
-          onClick={() => patch({ fast: !controls.fast })}
+          title="自動批准模式（bypassPermissions）。執行中僅送 Shift-Tab 最佳努力切換。"
+          onClick={() => patch({ autoApprove: !controls.autoApprove })}
         >
-          ⚡ {controls.fast ? '極速' : '一般'}
+          {controls.autoApprove ? '🟢 自動批准' : '⚪ 需確認'}
         </button>
-      )}
+
+        {fastAvailable && (
+          <button
+            type="button"
+            className="ctrl-toggle"
+            data-on={controls.fast}
+            disabled={disabled}
+            title="極速模式（/fast，Opus 專屬）"
+            onClick={() => patch({ fast: !controls.fast })}
+          >
+            ⚡ {controls.fast ? '極速' : '一般'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
