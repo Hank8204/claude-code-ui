@@ -71,6 +71,8 @@ export interface SessionSnapshot {
   state: SessionState
   isBurnout: boolean
   usage: UsageSnapshot | null
+  /** usage 是「接回前的舊值」，尚未被新 transcript 更新（StaminaBar 標示「上次」）。 */
+  usageStale: boolean
   /** spec_04 §3：常駐開關的目前意圖值。 */
   controls: SessionControls
 }

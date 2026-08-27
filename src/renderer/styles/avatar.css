@@ -465,6 +465,17 @@
 .stamina-fill[data-zone='unknown'] {
   background: var(--stamina-unknown);
 }
+/* 接回後、新 transcript 到來前顯示的舊值——加斜紋提示「非即時」 */
+.stamina-fill[data-stale='true'] {
+  opacity: 0.55;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.35) 0,
+    rgba(255, 255, 255, 0.35) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
 .stamina-meta {
   display: flex;
   justify-content: space-between;

@@ -112,6 +112,7 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
 
       <StaminaBar
         usage={session.usage}
+        stale={session.usageStale}
         readonly={session.readonly}
         onCompact={() => void window.ccui.compact(session.sessionId)}
       />

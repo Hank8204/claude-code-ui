@@ -37,6 +37,9 @@
   - `--resume` 失敗 → 5s 內退出就用全新 `--session-id` 重生
   - 「移除」按鈕清幽靈工位
 - **淨效果**：有實質對話 → 幾分鐘後一切正常；空跑 session → StaminaBar「未知」+ resume fallback
+- **接回時的緩解（本次）**：`restart()` 把接回前的 `usage` 帶進新 session 當初始值，
+  StaminaBar 先顯示舊值並標「（上次）」+ 斜紋，新 transcript 到來再更新，不再整個空掉。
+  StaminaBar 文案也分「等待 transcript」與「model 無對照：<名稱>」兩種。
 - **下一步**：(1) 找出「怎樣的 turn 才會觸發 claude 寫 transcript」；(2) 視情況向 Claude Code 團隊回報
 
 ### ISSUE-007 · spec_04 §3 常駐開關：執行中改動無確認回饋（樂觀顯示）

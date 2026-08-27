@@ -42,7 +42,7 @@ class SessionStore {
   }
 
   patchUsage(sessionId: string, usage: UsageSnapshot): void {
-    this.mutate(sessionId, (s) => ({ ...s, usage }))
+    this.mutate(sessionId, (s) => ({ ...s, usage, usageStale: false }))
   }
 
   patchControls(sessionId: string, controls: SessionControls): void {

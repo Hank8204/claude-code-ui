@@ -122,7 +122,12 @@ export class SessionManager {
     this.dormantReaders.delete(sessionId)
 
     const revived = new ClaudeSession({
-      ...target,
+      sessionId: target.sessionId,
+      projectId: target.projectId,
+      projectPath: target.projectPath,
+      displayName: target.displayName,
+      controls: target.controls,
+      initialUsage: target.usage,
       cliPath: env.cliPath,
       pathEnv: env.pathEnv,
       resume: true
@@ -270,6 +275,7 @@ export class SessionManager {
     projectPath: string
     displayName: string
     controls: SessionControls
+    usage: UsageSnapshot | null
   } {
     const live = this.sessions.get(sessionId)
     if (live) {
@@ -278,7 +284,8 @@ export class SessionManager {
         projectId: live.projectId,
         projectPath: live.projectPath,
         displayName: live.displayName,
-        controls: live.currentControls
+        controls: live.currentControls,
+        usage: live.currentUsage
       }
     }
     const sleeping = this.dormant.get(sessionId)
@@ -289,7 +296,8 @@ export class SessionManager {
       projectId: sleeping.projectId,
       projectPath: project.projectPath,
       displayName: sleeping.displayName,
-      controls: normalizeControls(sleeping.controls, DEFAULT_CONTROLS)
+      controls: normalizeControls(sleeping.controls, DEFAULT_CONTROLS),
+      usage: this.dormantUsage.get(sessionId) ?? null
     }
   }
 
@@ -304,6 +312,7 @@ export class SessionManager {
       state: 'disconnected',
       isBurnout: false,
       usage: this.dormantUsage.get(session.sessionId) ?? null,
+      usageStale: false,
       controls: normalizeControls(session.controls, DEFAULT_CONTROLS)
     }
   }

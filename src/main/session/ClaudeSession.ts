@@ -31,6 +31,8 @@ export interface SessionConfig {
   readonly?: boolean
   /** spec_04 §3：啟動時的常駐開關；未帶則用 DEFAULT_CONTROLS。 */
   controls?: SessionControls
+  /** 接回時帶入上一輪的 usage 當初始值，避免體力條在新 transcript 到來前整個空掉。 */
+  initialUsage?: UsageSnapshot | null
 }
 
 interface SessionEvents {
@@ -65,6 +67,8 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   private readonly batcher: OutputBatcher
   private controls: SessionControls
   private usageSnapshot: UsageSnapshot | null = null
+  /** usageSnapshot 是接回前的舊值，還沒被新 transcript 覆蓋。 */
+  private usageStale = false
   private disposed = false
   private resumable = false
   /** `--resume` 已失敗過一次，下次 spawn 改用全新 session。 */
@@ -78,6 +82,10 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     this.projectPath = config.projectPath
     this.displayName = config.displayName
     this.controls = config.controls ?? { ...DEFAULT_CONTROLS }
+    if (config.initialUsage) {
+      this.usageSnapshot = config.initialUsage
+      this.usageStale = true
+    }
 
     this.state = new StateMachine(
       (s) => this.emit('state', s),
@@ -86,6 +94,7 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     this.batcher = new OutputBatcher((data) => this.emit('output', data))
     this.transcript = new TranscriptReader(this.sessionId, (snap) => {
       this.usageSnapshot = snap
+      this.usageStale = false
       this.state.updateContextRatio(snap.contextRatio)
       this.emit('usage', snap)
       this.markResumable()
@@ -119,6 +128,10 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
 
   get currentControls(): SessionControls {
     return this.controls
+  }
+
+  get currentUsage(): UsageSnapshot | null {
+    return this.usageSnapshot
   }
 
   /**
@@ -180,6 +193,7 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
       state: this.state.state,
       isBurnout: this.state.isBurnout,
       usage: this.usageSnapshot,
+      usageStale: this.usageStale,
       controls: this.controls
     }
   }
