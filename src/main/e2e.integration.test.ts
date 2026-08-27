@@ -71,11 +71,16 @@ describe.runIf(RUN)('e2e：真實 claude CLI 打通 hook 與 transcript', () => 
     expect(names).toContain('PreToolUse')
     expect(names).toContain('Stop')
 
+    // 重放到狀態機：先 working 再 idle
     const seen: SessionState[] = []
     const sm = new StateMachine((s) => seen.push(s), () => {})
     for (const n of names) sm.applyHookEvent(n)
-    expect(seen).toContain('working')
-    expect(sm.state).toBe('idle')
+    expect(seen.indexOf('working')).toBeGreaterThanOrEqual(0)
+    expect(seen.indexOf('idle')).toBeGreaterThan(seen.indexOf('working'))
+
+    // claude -p 跑完 process 結束 → SessionEnd → disconnected（預期）。
+    // 互動模式下 session 存活、無 SessionEnd，會停在 idle。
+    expect(sm.state).toBe(names.includes('SessionEnd') ? 'disconnected' : 'idle')
   }, 120_000)
 
   it('transcript tail 取得 usage，已知 model 的 contextRatio 非 null', async () => {
