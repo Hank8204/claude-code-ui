@@ -145,6 +145,7 @@ export class SessionManager {
   }
 
   async disposeAll(): Promise<void> {
+    this.persist() // 關閉前把最新狀態寫下
     await Promise.all([...this.sessions.values()].map((s) => s.dispose('app-quit')))
     this.sessions.clear()
   }
@@ -168,6 +169,8 @@ export class SessionManager {
     session.on('ended', (reason) =>
       this.emit('session:ended', { sessionId: session.sessionId, reason })
     )
+    // session 首次寫出 transcript 才可 --resume——此時才寫進持久化
+    session.on('persistable', () => this.persist())
   }
 
   private ensureProject(projectPath: string): ProjectRecord {
@@ -224,12 +227,15 @@ export class SessionManager {
     }
   }
 
+  /** 只持久化「已可 --resume」的 session——避免存下從未產生對話的幽靈工位。 */
   private persist(): void {
-    const live: PersistedSession[] = [...this.sessions.values()].map((s) => ({
-      sessionId: s.sessionId,
-      projectId: s.projectId,
-      displayName: s.displayName
-    }))
+    const live: PersistedSession[] = [...this.sessions.values()]
+      .filter((s) => s.isResumable)
+      .map((s) => ({
+        sessionId: s.sessionId,
+        projectId: s.projectId,
+        displayName: s.displayName
+      }))
     this.workspace.save({
       projects: [...this.projects.values()],
       sessions: [...live, ...this.dormant.values()]

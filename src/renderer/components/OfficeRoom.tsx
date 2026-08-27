@@ -16,7 +16,7 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
   const [editing, setEditing] = useState(false)
 
   const openTerminal = (): void => {
-    if (session.readonly) return
+    if (session.readonly || session.state === 'disconnected') return
     onOpenTerminal(session.sessionId)
   }
 

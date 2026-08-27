@@ -22,7 +22,12 @@ interface SessionEvents {
   usage: [UsageSnapshot]
   burnout: [boolean]
   ended: [string]
+  /** 首次寫出 transcript——此後這個 session 才能 `claude --resume`。 */
+  persistable: []
 }
+
+/** `--resume` 失敗到改用全新 session 之間的存活時間上限。 */
+const RESUME_FALLBACK_WINDOW_MS = 5000
 
 /**
  * 單一 Claude Code session（spec_01 §3.1）。
@@ -42,6 +47,10 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   private readonly batcher: OutputBatcher
   private usageSnapshot: UsageSnapshot | null = null
   private disposed = false
+  private resumable = false
+  /** `--resume` 已失敗過一次，下次 spawn 改用全新 session。 */
+  private resumeFailed = false
+  private spawnedAt = 0
 
   constructor(private readonly config: SessionConfig) {
     super()
@@ -59,11 +68,23 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
       this.usageSnapshot = snap
       this.state.updateContextRatio(snap.contextRatio)
       this.emit('usage', snap)
+      this.markResumable()
     })
   }
 
   get isReadonly(): boolean {
     return this.pty === null
+  }
+
+  /** transcript 已存在——這個 session 現在可以被 `claude --resume` 接回。 */
+  get isResumable(): boolean {
+    return this.resumable
+  }
+
+  private markResumable(): void {
+    if (this.resumable) return
+    this.resumable = true
+    this.emit('persistable')
   }
 
   async start(): Promise<void> {
@@ -120,10 +141,12 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   }
 
   private spawnPty(): void {
-    const args = this.config.resume
+    const resuming = Boolean(this.config.resume) && !this.resumeFailed
+    const args = resuming
       ? ['--resume', this.sessionId]
       : ['--session-id', this.sessionId, '--name', this.displayName]
 
+    this.spawnedAt = Date.now()
     this.pty = spawn(this.config.cliPath, args, {
       name: 'xterm-256color',
       cols: 80,
@@ -140,11 +163,25 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     if (this.disposed) return
     this.pty = null
     this.batcher.flush()
+
     if (exitCode === 0) {
       this.state.markEnded()
       this.emit('ended', 'exit')
-    } else {
-      this.state.markPtyCrashed() // 非預期退出 → error，保留工位
+      return
     }
+    if (this.shouldRetryWithoutResume()) {
+      this.resumeFailed = true // 對話不存在（例如從未送過訊息就被關）→ 以全新 session 重生
+      this.spawnPty()
+      return
+    }
+    this.state.markPtyCrashed() // 非預期退出 → error，保留工位
+  }
+
+  private shouldRetryWithoutResume(): boolean {
+    return (
+      Boolean(this.config.resume) &&
+      !this.resumeFailed &&
+      Date.now() - this.spawnedAt < RESUME_FALLBACK_WINDOW_MS
+    )
   }
 }
