@@ -72,12 +72,25 @@ body {
   white-space: nowrap;
 }
 .add-project-bar input {
-  flex: 1;
   padding: 7px 10px;
   border-radius: 8px;
   border: 1px solid var(--room-border);
   background: var(--bg);
   color: var(--text);
+}
+.add-project-bar .path-input {
+  flex: 1;
+}
+.add-project-bar .name-input {
+  width: 200px;
+}
+.add-session-name {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--state-working);
+  background: var(--bg);
+  color: var(--text);
+  width: 260px;
 }
 .add-project-bar button,
 .add-session,

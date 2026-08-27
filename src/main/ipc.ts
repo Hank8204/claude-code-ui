@@ -6,7 +6,9 @@ import type { SessionManager } from './session/SessionManager.js'
  * 逐一列舉 channel，不轉發任意名稱。
  */
 export function registerIpcHandlers(manager: SessionManager): void {
-  ipcMain.handle('session:start', (_e, projectPath: string) => manager.start(projectPath))
+  ipcMain.handle('session:start', (_e, projectPath: string, displayName?: string) =>
+    manager.start(projectPath, displayName)
+  )
   ipcMain.handle('session:rename', (_e, id: string, name: string) => manager.rename(id, name))
   ipcMain.handle('session:stop', (_e, id: string) => manager.stop(id))
   ipcMain.handle('session:restart', (_e, id: string) => manager.restart(id))

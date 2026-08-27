@@ -51,7 +51,7 @@ export interface ProjectSnapshot {
 
 /** Renderer → Main（ipcRenderer.invoke）。preload 逐一白名單暴露。 */
 export interface RendererToMain {
-  'session:start': (projectPath: string) => Promise<{ sessionId: string }>
+  'session:start': (projectPath: string, displayName?: string) => Promise<{ sessionId: string }>
   'session:rename': (sessionId: string, displayName: string) => Promise<void>
   'session:stop': (sessionId: string) => Promise<void>
   'session:restart': (sessionId: string) => Promise<{ sessionId: string }>

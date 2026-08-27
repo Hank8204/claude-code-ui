@@ -20,7 +20,13 @@ const SEVERITY_CLASS: Record<Severity, string> = {
 /** 專案樓層（spec_02 §3A）。彙總狀態即時由子 session 計算，不快取。 */
 export function ProjectFloor({ project, sessions, onOpenTerminal }: Props): JSX.Element {
   const [collapsed, setCollapsed] = useState(false)
+  const [adding, setAdding] = useState(false)
   const summary = summarizeFloor(sessions)
+
+  const addSession = (name?: string): void => {
+    setAdding(false)
+    void window.ccui.startSession(project.projectPath, name?.trim() || undefined)
+  }
 
   return (
     <section className={`project-floor ${SEVERITY_CLASS[summary.severity]}`}>
@@ -38,13 +44,22 @@ export function ProjectFloor({ project, sessions, onOpenTerminal }: Props): JSX.
           <span className="floor-path">{project.projectPath}</span>
         </div>
         <span className="floor-summary">{summary.label}</span>
-        <button
-          type="button"
-          className="add-session"
-          onClick={() => void window.ccui.startSession(project.projectPath)}
-        >
-          ＋ 新增 session
-        </button>
+        {adding ? (
+          <input
+            className="add-session-name"
+            autoFocus
+            placeholder="session 名稱（Enter 建立 / Esc 取消）"
+            onBlur={(e) => addSession(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') addSession(e.currentTarget.value)
+              if (e.key === 'Escape') setAdding(false)
+            }}
+          />
+        ) : (
+          <button type="button" className="add-session" onClick={() => setAdding(true)}>
+            ＋ 新增 session
+          </button>
+        )}
       </header>
 
       {!collapsed && (

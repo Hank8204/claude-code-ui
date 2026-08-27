@@ -16,7 +16,8 @@ const SUBSCRIBABLE: MainToRendererChannel[] = [
 ]
 
 const api = {
-  startSession: (projectPath: string) => ipcRenderer.invoke('session:start', projectPath),
+  startSession: (projectPath: string, displayName?: string) =>
+    ipcRenderer.invoke('session:start', projectPath, displayName),
   renameSession: (id: string, name: string) => ipcRenderer.invoke('session:rename', id, name),
   stopSession: (id: string) => ipcRenderer.invoke('session:stop', id),
   restartSession: (id: string) => ipcRenderer.invoke('session:restart', id),

@@ -12,6 +12,8 @@ export interface SessionConfig {
   projectPath: string
   displayName: string
   cliPath: string
+  /** login shell 的完整 PATH——claude 的 hooks 靠它找 node/bun。 */
+  pathEnv?: string
   /** resume 既有 session 時帶入。 */
   resume?: boolean
   /** 外部監看 session（無 PTY handle，不可輸入）。PTY 死掉不算——那是 disconnected。 */
@@ -180,7 +182,10 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
       cols: 80,
       rows: 24,
       cwd: this.projectPath,
-      env: process.env as Record<string, string>
+      env: {
+        ...(process.env as Record<string, string>),
+        PATH: this.config.pathEnv || process.env.PATH || ''
+      }
     })
 
     this.pty.onData((data) => this.batcher.push(data))

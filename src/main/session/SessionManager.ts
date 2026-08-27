@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import { ClaudeSession } from './ClaudeSession.js'
-import { resolveClaudeCliPath } from '../cli-resolver.js'
+import { resolveClaudeEnv, type ClaudeEnv } from '../cli-resolver.js'
 import { SessionNotFoundError } from '../errors.js'
 import type { HookEvent } from '../bridge/HookBridgeServer.js'
 import type {
@@ -33,7 +33,7 @@ export class SessionManager {
   private readonly projects = new Map<string, ProjectRecord>()
   private readonly sessions = new Map<string, ClaudeSession>()
   private readonly dormant = new Map<string, PersistedSession>()
-  private cliPath: string | null = null
+  private claudeEnv: ClaudeEnv | null = null
   private foregroundId: string | null = null
 
   constructor(
@@ -51,18 +51,19 @@ export class SessionManager {
     }
   }
 
-  async start(projectPath: string): Promise<{ sessionId: string }> {
-    const cliPath = await this.ensureCliPath()
+  async start(projectPath: string, displayName?: string): Promise<{ sessionId: string }> {
+    const env = await this.ensureClaudeEnv()
     const project = this.ensureProject(projectPath)
     const sessionId = randomUUID()
-    const displayName = `${project.displayName} #${++project.serial}`
+    const name = displayName?.trim() || `${project.displayName} #${++project.serial}`
 
     const session = new ClaudeSession({
       sessionId,
       projectId: project.projectId,
       projectPath,
-      displayName,
-      cliPath
+      displayName: name,
+      cliPath: env.cliPath,
+      pathEnv: env.pathEnv
     })
     this.register(session)
     await session.start()
@@ -75,13 +76,18 @@ export class SessionManager {
   /** 重啟 `error` 的 session，或接回休眠 session（皆走 `claude --resume`）。 */
   async restart(sessionId: string): Promise<{ sessionId: string }> {
     const target = this.resolveResumeTarget(sessionId)
-    const cliPath = await this.ensureCliPath()
+    const env = await this.ensureClaudeEnv()
 
     await this.sessions.get(sessionId)?.dispose('restart')
     this.sessions.delete(sessionId)
     this.dormant.delete(sessionId)
 
-    const revived = new ClaudeSession({ ...target, cliPath, resume: true })
+    const revived = new ClaudeSession({
+      ...target,
+      cliPath: env.cliPath,
+      pathEnv: env.pathEnv,
+      resume: true
+    })
     this.register(revived)
     await revived.start()
 
@@ -248,9 +254,9 @@ export class SessionManager {
     })
   }
 
-  private async ensureCliPath(): Promise<string> {
-    this.cliPath ??= await resolveClaudeCliPath(this.userCliPath)
-    return this.cliPath
+  private async ensureClaudeEnv(): Promise<ClaudeEnv> {
+    this.claudeEnv ??= await resolveClaudeEnv(this.userCliPath)
+    return this.claudeEnv
   }
 
   private require(sessionId: string): ClaudeSession {
