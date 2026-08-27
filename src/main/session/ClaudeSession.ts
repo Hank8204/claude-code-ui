@@ -99,6 +99,11 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
     this.state.applyHookEvent(hookEventName)
   }
 
+  /** hook payload 帶來的 transcript_path，轉給 TranscriptReader 作定位提示。 */
+  noteTranscriptPath(path: string): void {
+    this.transcript.setPathHint(path)
+  }
+
   write(data: string): void {
     if (!this.pty) throw new ReadonlySessionError(this.sessionId)
     this.pty.write(data)
@@ -133,13 +138,33 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   async dispose(reason: string): Promise<void> {
     if (this.disposed) return
     this.disposed = true
+    await this.shutdownPty()
     this.batcher.flush()
     this.batcher.dispose()
-    this.pty?.kill()
-    this.pty = null
     await this.transcript.stop()
     this.state.markEnded()
     this.emit('ended', reason)
+  }
+
+  /**
+   * 優雅關閉 PTY：先送 /exit 讓 claude 有機會 flush transcript，逾時才強制 kill。
+   * claude 互動模式對 SIGHUP 不會寫出 transcript，直接 kill 會遺失 usage 資料。
+   */
+  private async shutdownPty(): Promise<void> {
+    const pty = this.pty
+    this.pty = null
+    if (!pty) return
+    try {
+      pty.write('/exit\r')
+    } catch {
+      /* PTY 可能已關 */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 800))
+    try {
+      pty.kill()
+    } catch {
+      /* 已退出 */
+    }
   }
 
   private spawnPty(): void {

@@ -1,4 +1,4 @@
-import { createReadStream, existsSync } from 'node:fs'
+import { createReadStream, existsSync, statSync, readdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -24,6 +24,8 @@ export class TranscriptReader {
   private lastModel: string | null = null
   private lastUsage: TokenUsage = emptyUsage()
   private totalCostUsd = 0
+  /** hook payload 的 transcript_path——比 glob 權威（spec_03 §3.1）。 */
+  private pathHint: string | null = null
 
   constructor(
     private readonly sessionId: string,
@@ -50,20 +52,40 @@ export class TranscriptReader {
     this.watcher = null
   }
 
+  /** 由 hook 的 transcript_path 提示實際位置（比 glob 權威）。 */
+  setPathHint(path: string): void {
+    if (path && !this.pathHint) this.pathHint = path
+  }
+
   private log(message: string): void {
     console.error(`[transcript ${this.sessionId.slice(0, 8)}] ${message}`)
   }
 
-  /** glob ~/.claude/projects/*\/<sessionId>.jsonl —— UUID 全域唯一，不需反推 cwd 目錄。 */
+  /**
+   * 定位 transcript：優先用 hook 提示的路徑；否則 glob。
+   * 相容兩種 layout：`<proj>/<id>.jsonl`（-p 模式）與 `<proj>/<id>/*.jsonl`（互動模式）。
+   */
   private async locateFile(): Promise<string | null> {
+    const fromHint = this.resolveCandidate(this.pathHint)
+    if (fromHint) return fromHint
     if (!existsSync(PROJECTS_ROOT)) return null
+
     const dirs = await readdir(PROJECTS_ROOT, { withFileTypes: true })
     for (const dir of dirs) {
       if (!dir.isDirectory()) continue
-      const candidate = join(PROJECTS_ROOT, dir.name, `${this.sessionId}.jsonl`)
-      if (existsSync(candidate)) return candidate
+      const base = join(PROJECTS_ROOT, dir.name, this.sessionId)
+      const hit = this.resolveCandidate(`${base}.jsonl`) ?? this.resolveCandidate(base)
+      if (hit) return hit
     }
     return null
+  }
+
+  /** 接受檔案路徑或目錄路徑；目錄則取內含最新的 .jsonl。 */
+  private resolveCandidate(path: string | null): string | null {
+    if (!path || !existsSync(path)) return null
+    if (statSync(path).isFile()) return path
+    const inner = readdirSync(path).filter((n) => n.endsWith('.jsonl'))
+    return inner.length ? join(path, inner.sort().at(-1)!) : null
   }
 
   private async consumeNewBytes(): Promise<void> {

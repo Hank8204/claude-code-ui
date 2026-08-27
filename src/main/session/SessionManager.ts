@@ -131,11 +131,13 @@ export class SessionManager {
 
   /** 依 session_id 精準派送 hook 事件。未知（含休眠）session 靜默忽略（spec_03 §3.2）。 */
   dispatchHookEvent(event: HookEvent): void {
-    const known = this.sessions.has(event.sessionId)
+    const session = this.sessions.get(event.sessionId)
     console.error(
-      `[hook] ${event.hookEventName} session=${event.sessionId.slice(0, 8)} known=${known}`
+      `[hook] ${event.hookEventName} session=${event.sessionId.slice(0, 8)} known=${Boolean(session)} tp=${event.transcriptPath ?? '-'}`
     )
-    this.sessions.get(event.sessionId)?.handleHookEvent(event.hookEventName)
+    if (!session) return
+    if (event.transcriptPath) session.noteTranscriptPath(event.transcriptPath)
+    session.handleHookEvent(event.hookEventName)
   }
 
   getState(): AppStateSnapshot {
