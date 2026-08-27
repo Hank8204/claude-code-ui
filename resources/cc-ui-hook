@@ -1,0 +1,17 @@
+#!/bin/bash
+# cc-ui-hook — 單向遙測，永不阻擋 CLI（spec_03 §5.1）
+# 由 Claude Code UI 於首次啟動並取得使用者同意後安裝到 ~/.claude-code-ui/cc-ui-hook
+CFG="$HOME/.claude-code-ui/bridge.json"
+[ -f "$CFG" ] || exit 0
+
+PORT=$(sed -n 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' "$CFG")
+TOKEN=$(sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$CFG")
+[ -n "$PORT" ] || exit 0
+
+curl -s -o /dev/null --max-time 1 \
+     -H "Content-Type: application/json" \
+     -H "X-CCUI-Token: $TOKEN" \
+     --data-binary @- \
+     "http://127.0.0.1:$PORT/hook" 2>/dev/null
+
+exit 0

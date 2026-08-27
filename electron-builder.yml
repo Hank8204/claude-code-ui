@@ -1,0 +1,19 @@
+# electron-builder 設定（spec_01 §8）
+# 原始碼開源分發：不 notarize、不啟用 hardened runtime；ad-hoc 簽章即可。
+appId: dev.hanklin.claude-code-ui
+productName: Claude Code UI
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**/*
+  - package.json
+extraResources:
+  - from: resources/cc-ui-hook
+    to: cc-ui-hook
+mac:
+  target:
+    - dir
+  category: public.app-category.developer-tools
+  hardenedRuntime: false # electron-builder 近期版本預設 true，需明確關閉
+npmRebuild: true

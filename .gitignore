@@ -1,0 +1,10 @@
+node_modules/
+.obsidian/
+*.orig
+out/
+dist/
+*.log
+.DS_Store
+.vite/
+release/
+.DS_Store

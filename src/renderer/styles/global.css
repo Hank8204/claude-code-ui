@@ -1,0 +1,194 @@
+/* 全域主題 token（spec_02 §6.5）。跟隨系統深淺色。 */
+:root {
+  --bg: #eef1f5;
+  --panel: #ffffff;
+  --text: #1c2430;
+  --text-dim: #64748b;
+  --room-bg: #e2e8f0;
+  --room-border: #cbd5e1;
+  --desk: linear-gradient(160deg, #c9d2df, #aab6c6);
+
+  --figure-light: #ffffff;
+  --figure-mid: #e9edf3;
+  --figure-dark: #c4ccd8;
+  --ground-shadow: rgba(30, 41, 59, 0.28);
+
+  --state-idle: #94a3b8;
+  --state-working: #3b82f6;
+  --state-waiting: #f59e0b;
+  --state-error: #ef4444;
+  --burnout: #ef4444;
+
+  --stamina-green: #22c55e;
+  --stamina-yellow: #f59e0b;
+  --stamina-red: #ef4444;
+  --stamina-unknown: #94a3b8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f141b;
+    --panel: #1a222d;
+    --text: #e6edf3;
+    --text-dim: #8b98a8;
+    --room-bg: #1e2733;
+    --room-border: #33404f;
+    --desk: linear-gradient(160deg, #2b3644, #1d2531);
+    --figure-mid: #dfe5ee;
+    --figure-dark: #aab4c4;
+    --ground-shadow: rgba(0, 0, 0, 0.55);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang TC", sans-serif;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.add-project-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--room-border);
+  background: var(--panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.add-project-bar h1 {
+  font-size: 15px;
+  margin: 0;
+  white-space: nowrap;
+}
+.add-project-bar input {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--room-border);
+  background: var(--bg);
+  color: var(--text);
+}
+.add-project-bar button,
+.add-session,
+.restart-btn {
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--state-working);
+  background: var(--state-working);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.floor-stack {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.empty-hint {
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+/* ProjectFloor（spec_02 §3A） */
+.project-floor {
+  border: 1px solid var(--room-border);
+  border-radius: 14px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.floor-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--room-border);
+}
+.collapse-toggle {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+}
+.floor-title {
+  display: flex;
+  flex-direction: column;
+}
+.floor-path {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.floor-summary {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.project-floor.sev-waiting .floor-summary {
+  color: var(--state-waiting);
+  font-weight: 600;
+}
+.project-floor.sev-waiting {
+  border-color: var(--state-waiting);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25);
+}
+.project-floor.sev-error {
+  border-color: var(--state-error);
+}
+.project-floor.sev-burnout {
+  border-color: var(--burnout);
+}
+
+.floor-rooms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  padding: 16px;
+}
+
+/* TerminalView 彈窗（spec_02 §3E） */
+.terminal-overlay {
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: min(760px, 80vw);
+  background: #0b0e14;
+  border-left: 1px solid var(--room-border);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
+}
+.terminal-titlebar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  color: #cdd6e4;
+  font-size: 12px;
+  border-bottom: 1px solid #1d2531;
+}
+.terminal-titlebar button {
+  background: none;
+  border: none;
+  color: #cdd6e4;
+  cursor: pointer;
+}
+.terminal-host {
+  flex: 1;
+  padding: 8px;
+  overflow: hidden;
+}

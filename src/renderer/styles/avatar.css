@@ -1,0 +1,382 @@
+/* ============================================================
+   AgentAvatar / OfficeRoom — 純 CSS，零圖片、零 3D 引擎（spec_02 §6）
+   只動 transform 與 opacity；狀態切換用 data attribute。
+   ============================================================ */
+
+.office-room {
+  position: relative;
+  border-radius: 16px;
+  background: var(--room-bg);
+  border: 3px solid var(--room-border);
+  padding: 10px;
+  transition: border-color 0.3s ease, filter 0.6s ease;
+}
+
+.room-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.room-name {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: text;
+  padding: 0;
+}
+.readonly-badge {
+  font-size: 10px;
+  color: var(--text-dim);
+  border: 1px solid var(--room-border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+.room-stage {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 200px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  overflow: hidden;
+}
+.room-stage:disabled {
+  cursor: default;
+}
+
+/* 桌子：俯視角遮住下半身 → 小人省略腿部（§6.1） */
+.desk {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  width: 150px;
+  height: 44px;
+  transform: translateX(-50%);
+  background: var(--desk);
+  border-radius: 8px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+}
+
+/* 房間邊框光效（§6.4） */
+.office-room[data-state='waiting_input'] {
+  border-color: var(--state-waiting);
+  animation: room-waiting 1s ease-in-out infinite;
+}
+.office-room[data-state='error'] {
+  border-color: var(--state-error);
+}
+.office-room[data-state='disconnected'] {
+  filter: brightness(0.6);
+}
+.office-room[data-burnout='true'] {
+  border-color: var(--burnout);
+  animation: room-burnout 1s ease-in-out infinite;
+}
+
+@keyframes room-waiting {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 22px 2px rgba(245, 158, 11, 0.55);
+  }
+}
+@keyframes room-burnout {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 22px 2px rgba(239, 68, 68, 0.6);
+  }
+}
+
+/* ---- 分層 DOM（§6.3）：外層搖、內層動 ---- */
+.avatar-anchor {
+  position: absolute;
+  left: 50%;
+  bottom: 60px;
+  transform: translateX(-50%);
+  width: 72px;
+  height: 110px;
+}
+
+.ground-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 60px;
+  height: 16px;
+  transform: translateX(-50%);
+  background: radial-gradient(ellipse at center, var(--ground-shadow) 0%, transparent 70%);
+  border-radius: 50%;
+}
+.ground-shadow[data-state='idle'] {
+  animation: shadow-idle 3s ease-in-out infinite alternate;
+}
+
+.avatar-burnout,
+.avatar-state {
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 90%;
+}
+.avatar-parts {
+  position: absolute;
+  inset: 0;
+}
+
+.head {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 34px;
+  height: 34px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
+  box-shadow: inset -3px -4px 6px rgba(0, 0, 0, 0.12);
+}
+.body {
+  position: absolute;
+  left: 50%;
+  top: 30px;
+  width: 44px;
+  height: 62px;
+  transform: translateX(-50%);
+  border-radius: 22px 22px 16px 16px;
+  background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
+  box-shadow: inset -4px -5px 9px rgba(0, 0, 0, 0.14);
+}
+.arm {
+  position: absolute;
+  top: 34px;
+  width: 12px;
+  height: 44px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--figure-light), var(--figure-dark));
+  box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.12);
+}
+.arm.left {
+  left: 6px;
+  transform-origin: 50% 6px;
+}
+.arm.right {
+  right: 6px;
+  transform-origin: 50% 6px;
+}
+
+/* 氣泡：::after content，opacity + translateY 淡入（§6.4） */
+.avatar-parts::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  transform: translate(-50%, 6px);
+  font-size: 20px;
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+.avatar-state[data-state='working'] .avatar-parts::after {
+  content: '📝';
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.avatar-state[data-state='waiting_input'] .avatar-parts::after {
+  content: '❓';
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.avatar-state[data-state='error'] .avatar-parts::after {
+  content: '⚠️';
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.avatar-burnout[data-burnout='true'] .avatar-parts::after {
+  content: '🥵';
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* ---- state 動畫（§6.4）—— 只動 transform / opacity ---- */
+.avatar-state[data-state='idle'] {
+  animation: fig-idle 3s ease-in-out infinite alternate;
+}
+@keyframes fig-idle {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-3px);
+  }
+}
+@keyframes shadow-idle {
+  from {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.9;
+  }
+  to {
+    transform: translateX(-50%) scale(0.82);
+    opacity: 0.6;
+  }
+}
+
+.avatar-state[data-state='working'] {
+  animation: fig-working 0.12s steps(2, end) infinite;
+  will-change: transform;
+}
+@keyframes fig-working {
+  0% {
+    transform: translateX(-1px);
+  }
+  100% {
+    transform: translateX(1px);
+  }
+}
+.avatar-state[data-state='working'] .arm.left {
+  animation: arm-work 0.5s ease-in-out infinite alternate;
+}
+.avatar-state[data-state='working'] .arm.right {
+  animation: arm-work 0.5s ease-in-out infinite alternate reverse;
+}
+@keyframes arm-work {
+  from {
+    transform: rotate(6deg);
+  }
+  to {
+    transform: rotate(-14deg);
+  }
+}
+
+.avatar-state[data-state='waiting_input'] {
+  animation: fig-waiting 0.3s ease-out forwards;
+  will-change: transform;
+}
+@keyframes fig-waiting {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
+}
+
+.avatar-state[data-state='error'] {
+  animation: fig-error 0.4s ease-in forwards;
+  filter: grayscale(1);
+  will-change: transform;
+}
+@keyframes fig-error {
+  from {
+    transform: rotate(0);
+  }
+  to {
+    transform: rotate(90deg) translateY(10px);
+  }
+}
+
+.avatar-state[data-state='disconnected'] {
+  animation: fig-disc 0.6s ease forwards;
+}
+@keyframes fig-disc {
+  to {
+    opacity: 0.35;
+  }
+}
+
+/* ---- burnout 疊加層（§6.3）—— 只做 rotate ±3deg ---- */
+.avatar-burnout[data-burnout='true'] {
+  animation: fig-burnout 0.25s ease-in-out infinite alternate;
+  will-change: transform;
+}
+@keyframes fig-burnout {
+  from {
+    transform: rotate(-3deg);
+  }
+  to {
+    transform: rotate(3deg);
+  }
+}
+
+/* StaminaBar（spec_02 §3C） */
+.stamina {
+  margin-top: 8px;
+}
+.stamina-track {
+  width: 100%;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--room-border);
+  overflow: hidden;
+}
+.stamina-fill {
+  height: 100%;
+  border-radius: 6px;
+  transition: width 0.3s ease, background 0.3s ease;
+}
+.stamina-fill[data-zone='green'] {
+  background: var(--stamina-green);
+}
+.stamina-fill[data-zone='yellow'] {
+  background: var(--stamina-yellow);
+}
+.stamina-fill[data-zone='red'] {
+  background: var(--stamina-red);
+}
+.stamina-fill[data-zone='unknown'] {
+  background: var(--stamina-unknown);
+}
+.stamina-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 6px;
+}
+.coffee-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 12px;
+  border: 1px solid var(--stamina-red);
+  color: var(--stamina-red);
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.restart-btn {
+  margin-top: 8px;
+  width: 100%;
+}
+
+/* §6.2：尊重 prefers-reduced-motion —— 停用動畫，改靜態顏色 + 氣泡 */
+@media (prefers-reduced-motion: reduce) {
+  .office-room *,
+  .office-room {
+    animation: none !important;
+    transition: none !important;
+  }
+  .avatar-state[data-state='waiting_input'] {
+    transform: scale(1.08);
+  }
+  .avatar-state[data-state='error'] {
+    transform: rotate(90deg) translateY(10px);
+  }
+  .avatar-state[data-state='disconnected'] {
+    opacity: 0.35;
+  }
+  .office-room[data-state='waiting_input'] {
+    box-shadow: inset 0 0 22px 2px rgba(245, 158, 11, 0.55);
+  }
+  .office-room[data-burnout='true'] {
+    box-shadow: inset 0 0 22px 2px rgba(239, 68, 68, 0.6);
+  }
+}

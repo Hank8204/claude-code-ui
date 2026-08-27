@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Spec 02 · AgentAvatar Demo</title>
+<style>
+  /* ============================================================
+     spec_02 §6.5 配色與主題 — 全部 token 化，跟隨系統深淺色
+     ============================================================ */
+  :root {
+    --bg: #eef1f5;
+    --panel: #ffffff;
+    --text: #1c2430;
+    --text-dim: #64748b;
+    --room-bg: #e2e8f0;
+    --room-border: #cbd5e1;
+    --desk: linear-gradient(160deg, #c9d2df, #aab6c6);
+
+    --figure-light: #ffffff;
+    --figure-mid: #e9edf3;
+    --figure-dark: #c4ccd8;
+    --ground-shadow: rgba(30, 41, 59, 0.28);
+
+    --state-idle: #94a3b8;
+    --state-working: #3b82f6;
+    --state-waiting: #f59e0b;
+    --state-error: #ef4444;
+    --state-disconnected: #64748b;
+    --burnout: #ef4444;
+
+    --stamina-green: #22c55e;
+    --stamina-yellow: #f59e0b;
+    --stamina-red: #ef4444;
+    --stamina-unknown: #94a3b8;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f141b;
+      --panel: #1a222d;
+      --text: #e6edf3;
+      --text-dim: #8b98a8;
+      --room-bg: #1e2733;
+      --room-border: #33404f;
+      --desk: linear-gradient(160deg, #2b3644, #1d2531);
+
+      /* spec_02 §6.5：小人本體深色下仍維持白色，僅接地陰影與底色調整 */
+      --figure-light: #ffffff;
+      --figure-mid: #dfe5ee;
+      --figure-dark: #aab4c4;
+      --ground-shadow: rgba(0, 0, 0, 0.55);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 32px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "PingFang TC", sans-serif;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 32px;
+    align-items: flex-start;
+  }
+
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: var(--text-dim); font-size: 13px; margin-bottom: 20px; }
+
+  /* ============================================================
+     OfficeRoom — spec_02 §3B（俯視角工位）
+     ============================================================ */
+  .office-room {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    border-radius: 18px;
+    background: var(--room-bg);
+    border: 3px solid var(--room-border);
+    overflow: hidden;
+    transition: border-color .3s ease, background .6s ease, filter .6s ease;
+  }
+
+  /* 桌子：俯視角遮住下半身，因此小人省略腿部（§6.1） */
+  .desk {
+    position: absolute;
+    left: 50%;
+    bottom: 34px;
+    width: 150px;
+    height: 46px;
+    transform: translateX(-50%);
+    background: var(--desk);
+    border-radius: 8px;
+    box-shadow: 0 6px 14px rgba(0,0,0,.18);
+  }
+
+  .room-label {
+    position: absolute;
+    top: 10px; left: 14px;
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: .04em;
+  }
+
+  /* 房間邊框光效：waiting → 黃、burnout → 紅（§6.4） */
+  .office-room[data-state="waiting_input"] {
+    border-color: var(--state-waiting);
+    animation: room-waiting 1s ease-in-out infinite;
+  }
+  .office-room[data-state="error"]        { border-color: var(--state-error); }
+  .office-room[data-state="disconnected"] { filter: brightness(.6); }
+
+  .office-room[data-burnout="true"] {
+    border-color: var(--burnout);
+    animation: room-burnout 1s ease-in-out infinite;
+  }
+
+  @keyframes room-waiting {
+    0%,100% { box-shadow: inset 0 0 0 0 rgba(245,158,11,0); }
+    50%     { box-shadow: inset 0 0 22px 2px rgba(245,158,11,.55); }
+  }
+  @keyframes room-burnout {
+    0%,100% { box-shadow: inset 0 0 0 0 rgba(239,68,68,0); }
+    50%     { box-shadow: inset 0 0 22px 2px rgba(239,68,68,.6); }
+  }
+
+  /* ============================================================
+     AgentAvatar — spec_02 §6.3 分層：外層搖(burnout)、內層動(state)
+       .avatar-burnout  → 只做 rotate ±3deg
+         .avatar-state  → 只做 state 變換（浮動/震動/放大/倒下/淡出）
+           .avatar-parts→ 頭、身體、手臂
+     ============================================================ */
+  .avatar-anchor {
+    position: absolute;
+    left: 50%;
+    bottom: 70px;              /* 站在桌子後方 */
+    transform: translateX(-50%);
+    width: 72px;
+    height: 110px;
+  }
+
+  /* 接地陰影：radial-gradient 橢圓，隨浮動同步縮放（§6.1） */
+  .ground-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    width: 60px;
+    height: 16px;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, var(--ground-shadow) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .avatar-burnout {
+    width: 100%;
+    height: 100%;
+    transform-origin: 50% 90%;
+  }
+  .avatar-state {
+    width: 100%;
+    height: 100%;
+    transform-origin: 50% 90%;
+  }
+  .avatar-parts {
+    position: absolute;
+    inset: 0;
+  }
+
+  /* 頭：圓形 + 左上偏亮的漸層（單一光源） */
+  .head {
+    position: absolute;
+    left: 50%;
+    top: 0;
+    width: 34px;
+    height: 34px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
+    box-shadow: inset -3px -4px 6px rgba(0,0,0,.12);
+  }
+
+  /* 身體：上寬下窄的膠囊 */
+  .body {
+    position: absolute;
+    left: 50%;
+    top: 30px;
+    width: 44px;
+    height: 62px;
+    transform: translateX(-50%);
+    border-radius: 22px 22px 16px 16px;
+    background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
+    box-shadow: inset -4px -5px 9px rgba(0,0,0,.14);
+  }
+
+  /* 手臂 ×2：細長圓角矩形，transform-origin 在肩膀 */
+  .arm {
+    position: absolute;
+    top: 34px;
+    width: 12px;
+    height: 44px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--figure-light), var(--figure-dark));
+    box-shadow: inset -2px -2px 4px rgba(0,0,0,.12);
+  }
+  .arm.left  { left: 6px;  transform-origin: 50% 6px; }
+  .arm.right { right: 6px; transform-origin: 50% 6px; }
+
+  /* 氣泡：::after 的 content，opacity + translateY 淡入（§6.4） */
+  .avatar-parts::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -30px;
+    transform: translate(-50%, 6px);
+    font-size: 20px;
+    opacity: 0;
+    transition: opacity .3s ease, transform .3s ease;
+    pointer-events: none;
+  }
+  .avatar-state[data-state="working"]       .avatar-parts::after { content: "📝"; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-state[data-state="waiting_input"] .avatar-parts::after { content: "❓"; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-state[data-state="error"]         .avatar-parts::after { content: "⚠️"; opacity: 1; transform: translate(-50%, 0); }
+  .avatar-burnout[data-burnout="true"] .avatar-parts::after      { content: "🥵"; opacity: 1; transform: translate(-50%, 0); }
+
+  /* ---- state 動畫（§6.4）— 只動 transform / opacity ---- */
+
+  /* idle：呼吸浮動；不加 will-change */
+  .avatar-state[data-state="idle"] {
+    animation: fig-idle 3s ease-in-out infinite alternate;
+  }
+  .avatar-state[data-state="idle"] ~ .ground-shadow,
+  .office-room[data-state="idle"] .ground-shadow {
+    animation: shadow-idle 3s ease-in-out infinite alternate;
+  }
+  @keyframes fig-idle {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-3px); }
+  }
+  @keyframes shadow-idle {
+    from { transform: translateX(-50%) scale(1); opacity: .9; }
+    to   { transform: translateX(-50%) scale(.82); opacity: .6; }
+  }
+
+  /* working：高頻微震 + 手臂擺動；will-change 僅非 idle */
+  .avatar-state[data-state="working"] {
+    animation: fig-working .12s steps(2, end) infinite;
+    will-change: transform;
+  }
+  @keyframes fig-working {
+    0%   { transform: translateX(-1px); }
+    100% { transform: translateX(1px); }
+  }
+  .avatar-state[data-state="working"] .arm.left  { animation: arm-work .5s ease-in-out infinite alternate; }
+  .avatar-state[data-state="working"] .arm.right { animation: arm-work .5s ease-in-out infinite alternate reverse; }
+  @keyframes arm-work {
+    from { transform: rotate(6deg); }
+    to   { transform: rotate(-14deg); }
+  }
+
+  /* waiting_input：放大並停住 */
+  .avatar-state[data-state="waiting_input"] {
+    animation: fig-waiting .3s ease-out forwards;
+    will-change: transform;
+  }
+  @keyframes fig-waiting {
+    from { transform: scale(1); }
+    to   { transform: scale(1.08); }
+  }
+
+  /* error：倒下 + 灰階，之後靜止 */
+  .avatar-state[data-state="error"] {
+    animation: fig-error .4s ease-in forwards;
+    filter: grayscale(1);
+    will-change: transform;
+  }
+  @keyframes fig-error {
+    from { transform: rotate(0); }
+    to   { transform: rotate(90deg) translateY(10px); }
+  }
+
+  /* disconnected：淡出 */
+  .avatar-state[data-state="disconnected"] {
+    animation: fig-disc .6s ease forwards;
+  }
+  @keyframes fig-disc {
+    to { opacity: .35; }
+  }
+
+  /* ---- burnout 疊加層（§6.3）— 只做 rotate ±3deg ---- */
+  .avatar-burnout[data-burnout="true"] {
+    animation: fig-burnout .25s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  @keyframes fig-burnout {
+    from { transform: rotate(-3deg); }
+    to   { transform: rotate(3deg); }
+  }
+
+  /* ============================================================
+     spec_02 §6.2：看不到的暫停（此處以 class 模擬 viewport 外）
+     ============================================================ */
+  .paused * { animation-play-state: paused !important; }
+
+  /* ============================================================
+     spec_02 §6.2：尊重 prefers-reduced-motion
+       停用所有 keyframes，改以靜態顏色 + 氣泡表達狀態
+     ============================================================ */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    .avatar-state[data-state="waiting_input"] { transform: scale(1.08); }
+    .avatar-state[data-state="error"]         { transform: rotate(90deg) translateY(10px); }
+    .avatar-state[data-state="disconnected"]  { opacity: .35; }
+    .office-room[data-state="waiting_input"]  { box-shadow: inset 0 0 22px 2px rgba(245,158,11,.55); }
+    .office-room[data-burnout="true"]         { box-shadow: inset 0 0 22px 2px rgba(239,68,68,.6); }
+  }
+
+  /* ============================================================
+     StaminaBar — spec_02 §3C（context 佔用率，非累計）
+     ============================================================ */
+  .stamina {
+    width: 260px;
+    margin-top: 14px;
+  }
+  .stamina-track {
+    width: 100%;
+    height: 12px;
+    border-radius: 6px;
+    background: var(--room-border);
+    overflow: hidden;
+  }
+  .stamina-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width .3s ease, background .3s ease;
+  }
+  .stamina-fill[data-zone="green"]   { background: var(--stamina-green); }
+  .stamina-fill[data-zone="yellow"]  { background: var(--stamina-yellow); }
+  .stamina-fill[data-zone="red"]     { background: var(--stamina-red); }
+  .stamina-fill[data-zone="unknown"] { background: var(--stamina-unknown); }
+
+  .stamina-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 6px;
+  }
+  .coffee-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 12px;
+    border: 1px solid var(--stamina-red);
+    color: var(--stamina-red);
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    display: none;
+  }
+  .stamina-fill[data-zone="red"] ~ .coffee-btn { display: block; }
+
+  /* ============================================================
+     控制面板
+     ============================================================ */
+  .panel {
+    background: var(--panel);
+    border-radius: 14px;
+    padding: 20px;
+    width: 300px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+  }
+  .panel h2 { font-size: 13px; margin: 0 0 10px; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .panel button.state {
+    padding: 6px 10px;
+    font-size: 12px;
+    border-radius: 8px;
+    border: 1px solid var(--room-border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+  }
+  .panel button.state[aria-pressed="true"] {
+    background: var(--state-working);
+    border-color: var(--state-working);
+    color: #fff;
+  }
+  .panel label { font-size: 12px; display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .panel input[type="range"] { width: 100%; }
+  .hint { font-size: 11px; color: var(--text-dim); line-height: 1.5; margin-top: 8px; }
+  code { background: var(--room-bg); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+</style>
+</head>
+<body>
+
+  <div>
+    <h1>Spec 02 · AgentAvatar / OfficeRoom</h1>
+    <p class="sub">純 CSS 幾何 + 漸層 + 陰影，零圖片、零 three.js。分層 DOM 讓 state 與 burnout 動畫可疊加。</p>
+
+    <div class="office-room" id="room" data-state="idle" data-burnout="false">
+      <span class="room-label" id="roomLabel">WPGH #1</span>
+      <div class="desk"></div>
+
+      <div class="avatar-anchor">
+        <div class="avatar-burnout" id="avBurnout" data-burnout="false">
+          <div class="avatar-state" id="avState" data-state="idle">
+            <div class="avatar-parts">
+              <div class="head"></div>
+              <div class="body"></div>
+              <div class="arm left"></div>
+              <div class="arm right"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ground-shadow" id="groundShadow"></div>
+      </div>
+    </div>
+
+    <div class="stamina">
+      <div class="stamina-track">
+        <div class="stamina-fill" id="staminaFill" data-zone="green" style="width:32%"></div>
+      </div>
+      <div class="stamina-meta">
+        <span id="staminaPct">Context 32%</span>
+        <span id="staminaCost">$0.0000 · claude-sonnet-5</span>
+      </div>
+      <button class="coffee-btn" id="coffeeBtn">☕ 喝咖啡（清理 Context）</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>state（活動狀態）</h2>
+    <div class="btn-row" id="stateBtns">
+      <button class="state" data-state="idle" aria-pressed="true">idle</button>
+      <button class="state" data-state="working" aria-pressed="false">working</button>
+      <button class="state" data-state="waiting_input" aria-pressed="false">waiting_input</button>
+      <button class="state" data-state="error" aria-pressed="false">error</button>
+      <button class="state" data-state="disconnected" aria-pressed="false">disconnected</button>
+    </div>
+
+    <h2>疊加維度</h2>
+    <label><input type="checkbox" id="burnoutChk" /> isBurnout（過勞搖晃 🥵）</label>
+    <label><input type="checkbox" id="pauseChk" /> 模擬 viewport 外 → 暫停動畫</label>
+
+    <h2>StaminaBar</h2>
+    <label>Context 佔用率
+      <input type="range" id="staminaRange" min="0" max="100" value="32" />
+    </label>
+    <label><input type="checkbox" id="unknownChk" /> 未知 model（灰色降級）</label>
+
+    <p class="hint">
+      <code>state</code> 與 <code>isBurnout</code> 正交：小人可「過勞但還在工作」。<br>
+      &gt; 80% 佔用率自動進紅區並顯示咖啡按鈕；按下模擬 <code>session:compact</code> 回血。<br>
+      切系統深/淺色、或開啟「減少動態效果」可見主題與 reduced-motion 分支。
+    </p>
+  </div>
+
+<script>
+  const room       = document.getElementById('room');
+  const avState    = document.getElementById('avState');
+  const avBurnout  = document.getElementById('avBurnout');
+  const stateBtns  = document.getElementById('stateBtns');
+  const burnoutChk = document.getElementById('burnoutChk');
+  const pauseChk   = document.getElementById('pauseChk');
+  const staminaRange = document.getElementById('staminaRange');
+  const unknownChk = document.getElementById('unknownChk');
+  const fill       = document.getElementById('staminaFill');
+  const pctLabel   = document.getElementById('staminaPct');
+  const coffeeBtn  = document.getElementById('coffeeBtn');
+
+  function setState(s) {
+    avState.dataset.state = s;
+    room.dataset.state = s;
+    [...stateBtns.children].forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.state === s)));
+  }
+
+  stateBtns.addEventListener('click', e => {
+    const btn = e.target.closest('button.state');
+    if (btn) setState(btn.dataset.state);
+  });
+
+  burnoutChk.addEventListener('change', () => {
+    const on = burnoutChk.checked;
+    avBurnout.dataset.burnout = String(on);
+    room.dataset.burnout = String(on);
+  });
+
+  pauseChk.addEventListener('change', () => {
+    room.classList.toggle('paused', pauseChk.checked);
+  });
+
+  function renderStamina() {
+    const pct = Number(staminaRange.value);
+    if (unknownChk.checked) {
+      fill.dataset.zone = 'unknown';
+      fill.style.width = '100%';
+      pctLabel.textContent = 'Context 未知（model 無對照）';
+      syncBurnoutFromStamina(false);
+      return;
+    }
+    fill.style.width = pct + '%';
+    let zone = 'green';
+    if (pct > 80)      zone = 'red';
+    else if (pct >= 60) zone = 'yellow';
+    fill.dataset.zone = zone;
+    pctLabel.textContent = 'Context ' + pct + '%';
+    syncBurnoutFromStamina(zone === 'red');
+  }
+
+  // spec_01 §3.4：context 佔用率 > 80% → isBurnout（與 state 正交）
+  function syncBurnoutFromStamina(isRed) {
+    if (isRed && !burnoutChk.checked) {
+      burnoutChk.checked = true;
+      burnoutChk.dispatchEvent(new Event('change'));
+    } else if (!isRed && burnoutChk.checked && fill.dataset.zone !== 'red') {
+      burnoutChk.checked = false;
+      burnoutChk.dispatchEvent(new Event('change'));
+    }
+  }
+
+  staminaRange.addEventListener('input', renderStamina);
+  unknownChk.addEventListener('change', renderStamina);
+
+  // 咖啡按鈕：模擬 /compact 之後 context 真的下降 → 體力條回血
+  coffeeBtn.addEventListener('click', () => {
+    staminaRange.value = 18;
+    renderStamina();
+  });
+
+  renderStamina();
+</script>
+</body>
+</html>
