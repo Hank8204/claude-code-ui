@@ -1,17 +1,51 @@
 import Store from 'electron-store'
 
-/** 持久化資料（spec_01 §5）。M1 只存 hook 同意決定與 CLI 路徑。 */
-interface PersistedShape {
-  /** 使用者對「寫入全域 hooks」的決定。undefined = 尚未詢問。 */
-  hookConsent?: 'granted' | 'declined'
-  /** 使用者在設定中指定的 claude CLI 絕對路徑。 */
-  cliPath?: string
+/** 視窗位置與大小（spec_01 §5）。不綁 Electron 型別，方便測試。 */
+export interface WindowBounds {
+  width: number
+  height: number
+  x?: number
+  y?: number
 }
 
-const store = new Store<PersistedShape>({
-  name: 'claude-code-ui',
-  defaults: {}
-})
+/** 持久化的專案記錄。與 SessionManager 的 ProjectRecord 同形。 */
+export interface PersistedProject {
+  projectId: string
+  projectPath: string
+  displayName: string
+  serial: number
+}
+
+/** 持久化的 session 中繼資料。重新啟動後以此重建可 `--resume` 的工位。 */
+export interface PersistedSession {
+  sessionId: string
+  projectId: string
+  displayName: string
+}
+
+export interface WorkspaceSnapshot {
+  projects: PersistedProject[]
+  sessions: PersistedSession[]
+}
+
+/**
+ * SessionManager 依賴的持久化 port（依賴注入，方便以 in-memory fake 測試）。
+ */
+export interface WorkspacePort {
+  load(): WorkspaceSnapshot
+  save(snapshot: WorkspaceSnapshot): void
+}
+
+interface PersistedShape {
+  hookConsent?: 'granted' | 'declined'
+  cliPath?: string
+  windowBounds?: WindowBounds
+  workspace?: WorkspaceSnapshot
+}
+
+const store = new Store<PersistedShape>({ name: 'claude-code-ui', defaults: {} })
+
+const EMPTY_WORKSPACE: WorkspaceSnapshot = { projects: [], sessions: [] }
 
 export function getHookConsent(): PersistedShape['hookConsent'] {
   return store.get('hookConsent')
@@ -31,4 +65,18 @@ export function getUserCliPath(): string | undefined {
 
 export function setUserCliPath(path: string): void {
   store.set('cliPath', path)
+}
+
+export function getWindowBounds(): WindowBounds | undefined {
+  return store.get('windowBounds')
+}
+
+export function setWindowBounds(bounds: WindowBounds): void {
+  store.set('windowBounds', bounds)
+}
+
+/** electron-store 版的 WorkspacePort。 */
+export const electronStoreWorkspace: WorkspacePort = {
+  load: () => store.get('workspace') ?? EMPTY_WORKSPACE,
+  save: (snapshot) => store.set('workspace', snapshot)
 }

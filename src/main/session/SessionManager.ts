@@ -5,36 +5,51 @@ import { resolveClaudeCliPath } from '../cli-resolver.js'
 import { SessionNotFoundError } from '../errors.js'
 import type { HookEvent } from '../bridge/HookBridgeServer.js'
 import type {
+  PersistedProject,
+  PersistedSession,
+  WorkspacePort
+} from '../config/store.js'
+import type {
   AppStateSnapshot,
   MainToRenderer,
-  ProjectSnapshot
+  ProjectSnapshot,
+  SessionSnapshot
 } from '@shared/types.js'
 
 type Emit = <C extends keyof MainToRenderer>(channel: C, payload: MainToRenderer[C]) => void
 
-interface ProjectRecord {
-  projectId: string
-  projectPath: string
-  displayName: string
-  serial: number
-}
+type ProjectRecord = PersistedProject
 
 /**
  * 所有 session 的生命週期與派送中樞（spec_01 §3.1）。
  *
  * 主鍵永遠是 sessionId；projectId 只是分組用的次要索引。專案本身不持有狀態，
  * 專案層級顯示一律由其下 session 即時彙總（在 renderer 做）。
+ *
+ * 專案清單與 session 中繼資料經 `workspace` port 持久化（spec_01 §5）。重新啟動後
+ * 未啟動的 session 以「休眠工位」呈現（`disconnected`），使用者可 `--resume` 接回。
  */
 export class SessionManager {
   private readonly projects = new Map<string, ProjectRecord>()
   private readonly sessions = new Map<string, ClaudeSession>()
+  private readonly dormant = new Map<string, PersistedSession>()
   private cliPath: string | null = null
   private foregroundId: string | null = null
 
   constructor(
     private readonly emit: Emit,
+    private readonly workspace: WorkspacePort,
     private readonly userCliPath?: string
   ) {}
+
+  /** App 啟動時載入持久化的專案與休眠 session。在 registerIpcHandlers 之前呼叫。 */
+  restore(): void {
+    const { projects, sessions } = this.workspace.load()
+    for (const project of projects) this.projects.set(project.projectId, { ...project })
+    for (const session of sessions) {
+      if (this.projects.has(session.projectId)) this.dormant.set(session.sessionId, session)
+    }
+  }
 
   async start(projectPath: string): Promise<{ sessionId: string }> {
     const cliPath = await this.ensureCliPath()
@@ -52,32 +67,37 @@ export class SessionManager {
     this.register(session)
     await session.start()
 
+    this.persist()
     this.broadcastProjectSessions(project.projectId)
     return { sessionId }
   }
 
+  /** 重啟 `error` 的 session，或接回休眠 session（皆走 `claude --resume`）。 */
   async restart(sessionId: string): Promise<{ sessionId: string }> {
-    const old = this.require(sessionId)
+    const target = this.resolveResumeTarget(sessionId)
     const cliPath = await this.ensureCliPath()
-    await old.dispose('restart')
-    this.sessions.delete(sessionId)
 
-    const revived = new ClaudeSession({
-      sessionId,
-      projectId: old.projectId,
-      projectPath: old.projectPath,
-      displayName: old.displayName,
-      cliPath,
-      resume: true
-    })
+    await this.sessions.get(sessionId)?.dispose('restart')
+    this.sessions.delete(sessionId)
+    this.dormant.delete(sessionId)
+
+    const revived = new ClaudeSession({ ...target, cliPath, resume: true })
     this.register(revived)
     await revived.start()
-    this.broadcastProjectSessions(old.projectId)
+
+    this.persist()
+    this.broadcastProjectSessions(target.projectId)
     return { sessionId }
   }
 
   rename(sessionId: string, displayName: string): void {
-    this.require(sessionId).rename(displayName)
+    const live = this.sessions.get(sessionId)
+    const sleeping = this.dormant.get(sessionId)
+    if (live) live.rename(displayName)
+    else if (sleeping) this.dormant.set(sessionId, { ...sleeping, displayName })
+    else throw new SessionNotFoundError(sessionId)
+
+    this.persist()
     this.emitAppState()
   }
 
@@ -85,6 +105,7 @@ export class SessionManager {
     const session = this.require(sessionId)
     await session.dispose('user-stop')
     // 保留工位：不從 sessions 移除，維持空的 OfficeRoom（disconnected 狀態）
+    this.persist()
     this.broadcastProjectSessions(session.projectId)
   }
 
@@ -108,7 +129,7 @@ export class SessionManager {
     this.foregroundId = sessionId
   }
 
-  /** 依 session_id 精準派送 hook 事件。未知 session 靜默忽略（spec_03 §3.2）。 */
+  /** 依 session_id 精準派送 hook 事件。未知（含休眠）session 靜默忽略（spec_03 §3.2）。 */
   dispatchHookEvent(event: HookEvent): void {
     this.sessions.get(event.sessionId)?.handleHookEvent(event.hookEventName)
   }
@@ -116,7 +137,10 @@ export class SessionManager {
   getState(): AppStateSnapshot {
     return {
       projects: [...this.projects.values()].map(toProjectSnapshot),
-      sessions: [...this.sessions.values()].map((s) => s.snapshot())
+      sessions: [
+        ...[...this.sessions.values()].map((s) => s.snapshot()),
+        ...[...this.dormant.values()].map((s) => this.dormantSnapshot(s))
+      ]
     }
   }
 
@@ -158,6 +182,58 @@ export class SessionManager {
     }
     this.projects.set(record.projectId, record)
     return record
+  }
+
+  private resolveResumeTarget(sessionId: string): {
+    sessionId: string
+    projectId: string
+    projectPath: string
+    displayName: string
+  } {
+    const live = this.sessions.get(sessionId)
+    if (live) {
+      return {
+        sessionId,
+        projectId: live.projectId,
+        projectPath: live.projectPath,
+        displayName: live.displayName
+      }
+    }
+    const sleeping = this.dormant.get(sessionId)
+    const project = sleeping && this.projects.get(sleeping.projectId)
+    if (!sleeping || !project) throw new SessionNotFoundError(sessionId)
+    return {
+      sessionId,
+      projectId: sleeping.projectId,
+      projectPath: project.projectPath,
+      displayName: sleeping.displayName
+    }
+  }
+
+  private dormantSnapshot(session: PersistedSession): SessionSnapshot {
+    const project = this.projects.get(session.projectId)
+    return {
+      sessionId: session.sessionId,
+      projectId: session.projectId,
+      projectPath: project?.projectPath ?? '',
+      displayName: session.displayName,
+      readonly: false,
+      state: 'disconnected',
+      isBurnout: false,
+      usage: null
+    }
+  }
+
+  private persist(): void {
+    const live: PersistedSession[] = [...this.sessions.values()].map((s) => ({
+      sessionId: s.sessionId,
+      projectId: s.projectId,
+      displayName: s.displayName
+    }))
+    this.workspace.save({
+      projects: [...this.projects.values()],
+      sessions: [...live, ...this.dormant.values()]
+    })
   }
 
   private async ensureCliPath(): Promise<string> {

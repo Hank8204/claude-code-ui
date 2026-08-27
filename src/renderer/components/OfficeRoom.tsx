@@ -61,13 +61,13 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
         <AgentAvatar state={session.state} isBurnout={session.isBurnout} />
       </button>
 
-      {session.state === 'error' && !session.readonly && (
+      {(session.state === 'error' || session.state === 'disconnected') && !session.readonly && (
         <button
           type="button"
           className="restart-btn"
           onClick={() => void window.ccui.restartSession(session.sessionId)}
         >
-          重啟
+          {session.state === 'error' ? '重啟' : '接回'}
         </button>
       )}
 

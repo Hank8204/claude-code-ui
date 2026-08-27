@@ -6,7 +6,13 @@ import { HookBridgeServer } from './bridge/HookBridgeServer.js'
 import { registerIpcHandlers, createEmitter } from './ipc.js'
 import { ensureHooksOnStartup } from './bridge/hook-lifecycle.js'
 import { buildAppMenu } from './menu.js'
-import { getUserCliPath } from './config/store.js'
+import {
+  getUserCliPath,
+  getWindowBounds,
+  setWindowBounds,
+  electronStoreWorkspace
+} from './config/store.js'
+import { debounce } from './util/debounce.js'
 import type { MainToRenderer } from '@shared/types.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
@@ -16,9 +22,12 @@ let bridge: HookBridgeServer | null = null
 let manager: SessionManager | null = null
 
 function createWindow(): void {
+  const bounds = getWindowBounds()
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 820,
+    width: bounds?.width ?? 1200,
+    height: bounds?.height ?? 820,
+    x: bounds?.x,
+    y: bounds?.y,
     show: false,
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
@@ -27,6 +36,12 @@ function createWindow(): void {
       sandbox: true
     }
   })
+
+  const persistBounds = debounce(() => {
+    if (mainWindow) setWindowBounds(mainWindow.getBounds())
+  }, 500)
+  mainWindow.on('resize', persistBounds)
+  mainWindow.on('move', persistBounds)
 
   mainWindow.on('ready-to-show', () => mainWindow?.show())
   mainWindow.on('closed', () => (mainWindow = null))
@@ -45,7 +60,8 @@ async function bootstrap(): Promise<void> {
     payload: MainToRenderer[C]
   ) => void
 
-  manager = new SessionManager(emit, getUserCliPath())
+  manager = new SessionManager(emit, electronStoreWorkspace, getUserCliPath())
+  manager.restore()
   bridge = new HookBridgeServer((event) => manager?.dispatchHookEvent(event))
   await bridge.start()
 
