@@ -65,13 +65,13 @@ async function bootstrap(): Promise<void> {
   bridge = new HookBridgeServer((event) => manager?.dispatchHookEvent(event))
   await bridge.start()
 
-  registerIpcHandlers(manager)
-  await buildAppMenu()
+  registerIpcHandlers(manager, emit)
+  await buildAppMenu(manager)
   createWindow()
 
   // 視窗建立後才詢問 hook 同意，dialog 才有 owner window
   await ensureHooksOnStartup()
-  await buildAppMenu() // 安裝狀態可能已改變
+  await buildAppMenu(manager) // 安裝狀態可能已改變
 }
 
 app.whenReady().then(bootstrap)

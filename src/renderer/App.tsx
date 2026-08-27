@@ -13,12 +13,21 @@ import { AddProjectBar } from './components/AddProjectBar.js'
 export function App(): JSX.Element {
   const state = useAppState()
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     void window.ccui.getState().then((s) => sessionStore.hydrate(s))
 
     const offs = [
       window.ccui.on('app:state', (p) => sessionStore.hydrate(p as AppStateSnapshot)),
+      window.ccui.on('app:error', (p) => {
+        const e = p as { message: string; canSetCliPath: boolean }
+        setError(
+          e.canSetCliPath
+            ? `${e.message}。請從選單「設定 → 指定 claude CLI 路徑」手動指定。`
+            : e.message
+        )
+      }),
       window.ccui.on('session:state', (p) => {
         const e = p as { sessionId: string; state: SessionState }
         sessionStore.patchState(e.sessionId, e.state)
@@ -42,6 +51,15 @@ export function App(): JSX.Element {
   return (
     <div className="app-shell">
       <AddProjectBar />
+
+      {error && (
+        <div className="app-error" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={() => setError(null)} aria-label="關閉">
+            ✕
+          </button>
+        </div>
+      )}
 
       <main className="floor-stack">
         {state.projects.length === 0 && (

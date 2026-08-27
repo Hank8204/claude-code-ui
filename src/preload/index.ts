@@ -12,7 +12,8 @@ const SUBSCRIBABLE: MainToRendererChannel[] = [
   'session:burnout',
   'session:ended',
   'project:sessions',
-  'app:state'
+  'app:state',
+  'app:error'
 ]
 
 const api = {

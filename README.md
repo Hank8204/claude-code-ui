@@ -71,6 +71,14 @@ src/
     └── styles/      # 純 CSS 小人與房間
 ```
 
+## 已知問題
+
+見 [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md)。最需要注意的是 **ISSUE-001**：claude 2.1.247
+互動模式的 transcript 是延遲數分鐘才寫出的，因此 session 剛開時體力條會顯示「Context 未知」，
+待 transcript 出現後才補上。
+
+若 App 找不到 `claude`，會跳錯誤橫幅，可從選單「設定 → 指定 claude CLI 路徑」手動指定。
+
 ## 里程碑
 
 * **M1**（進行中）：單一專案 PTY → xterm 可打字 → hook 通了 → 小人會動；含打包驗證

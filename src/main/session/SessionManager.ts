@@ -44,7 +44,7 @@ export class SessionManager {
   constructor(
     private readonly emit: Emit,
     private readonly workspace: WorkspacePort,
-    private readonly userCliPath?: string
+    private userCliPath?: string
   ) {}
 
   /** App 啟動時載入持久化的專案與休眠 session。在 registerIpcHandlers 之前呼叫。 */
@@ -292,8 +292,14 @@ export class SessionManager {
   }
 
   private async ensureClaudeEnv(): Promise<ClaudeEnv> {
-    this.claudeEnv ??= await resolveClaudeEnv(this.userCliPath)
+    this.claudeEnv ??= await resolveClaudeEnv(this.userCliPath ?? undefined)
     return this.claudeEnv
+  }
+
+  /** 使用者在設定中指定 CLI 路徑後呼叫——清快取，下次 start 重新解析。 */
+  setCliPath(path: string): void {
+    this.userCliPath = path
+    this.claudeEnv = null
   }
 
   private require(sessionId: string): ClaudeSession {

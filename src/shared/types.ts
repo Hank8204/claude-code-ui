@@ -77,6 +77,8 @@ export interface MainToRenderer {
   'session:ended': { sessionId: string; reason: string }
   'project:sessions': { projectId: string; sessionIds: string[] }
   'app:state': AppStateSnapshot
+  /** 使用者操作失敗（如找不到 claude CLI）——renderer 顯示可讀訊息。 */
+  'app:error': { message: string; canSetCliPath: boolean }
 }
 
 export type MainToRendererChannel = keyof MainToRenderer

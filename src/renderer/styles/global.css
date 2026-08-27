@@ -104,6 +104,26 @@ body {
   font-size: 13px;
 }
 
+.app-error {
+  margin: 12px 20px 0;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--state-error) 15%, var(--panel));
+  border: 1px solid var(--state-error);
+  color: var(--text);
+  font-size: 13px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.app-error button {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
 .floor-stack {
   padding: 20px;
   display: flex;
