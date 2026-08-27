@@ -48,6 +48,18 @@ export function OfficeRoom({ session, onOpenTerminal }: Props): JSX.Element {
           </button>
         )}
         {session.readonly && <span className="readonly-badge">唯讀</span>}
+        {!session.readonly &&
+          session.state !== 'disconnected' &&
+          session.state !== 'error' && (
+            <button
+              type="button"
+              className="stop-btn"
+              title="停止 session"
+              onClick={() => void window.ccui.stopSession(session.sessionId)}
+            >
+              停止
+            </button>
+          )}
       </div>
 
       <button

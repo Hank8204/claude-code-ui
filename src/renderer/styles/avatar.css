@@ -34,6 +34,20 @@
   border-radius: 4px;
   padding: 0 4px;
 }
+.stop-btn {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--room-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
+.stop-btn:hover {
+  color: var(--state-error);
+  border-color: var(--state-error);
+}
 
 .room-stage {
   position: relative;
