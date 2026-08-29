@@ -26,28 +26,63 @@
 | Node.js | 見 `.nvmrc`（22.x）——**務必一致**，`node-pty` 對 ABI 敏感 |
 | Claude Code CLI | 已安裝且可在你的 shell 執行 `claude` |
 
-## 建置
+## 使用方式（從原始碼執行）
+
+**本 App 刻意不分發打包好的 `.app`。** macOS 對未經 Apple Developer ID 簽章 +
+notarize 的 App 限制很多（Gatekeeper 擋、權限反覆索取），而從原始碼跑用的是
+`npm` 安裝下來、**Electron 官方已 notarize 過**的執行檔，這些摩擦全部消失。
+本 App 的受眾本來就有 Node、會用終端機，這個門檻趨近於零。
 
 ```bash
-nvm use                 # 對齊 Node 版本（重要）
-npm install             # postinstall 會自動 rebuild 原生模組
-npm run rebuild         # 若 node-pty 對 Electron ABI 不符時手動重編
-npm run dev             # 開發模式
-npm run package         # 打包出 release/mac/*.app（本機 build，ad-hoc 簽章）
+git clone <repo-url> claude-code-ui
+cd claude-code-ui
+
+nvm use            # 對齊 .nvmrc 的 Node 版本（重要——node-pty 對 ABI 敏感）
+npm install        # postinstall 會自動把 node-pty 對 Electron ABI 重編
+npm run dev        # 啟動（開發模式，含 HMR；日常就用這個）
 ```
 
-`node-pty` 是 native module，需對 Electron 的 ABI 重新編譯。版本不符是最常見的建置
-失敗原因——遇到時跑 `npm run rebuild`。
+- 首次啟動會**徵求同意後**寫入 `~/.claude/settings.json`（見上方警告）。
+- 找不到 `claude` 會跳錯誤橫幅 → 選單「設定 → 指定 claude CLI 路徑」。
+- `npm install` 失敗多半是 `node-pty` 對 Electron ABI 不符 → 跑 `npm run rebuild`。
+- 想跑「production 版」（無 dev server / HMR）：`npm start`（= build + preview）。
+- `npm run package` 會產出 `release/mac-*/*.app`，但那是 ad-hoc 簽章、僅供本機自用。
 
-## 開發指令
+## 在 IntelliJ IDEA 開發
+
+專案已內建 npm run configurations（`.idea/runConfigurations/`，隨 repo 提供）。
+在 **Run/Debug Configurations** 下拉、或 **Services** 工具視窗（`⌘8`）裡直接跑：
+
+| 設定 | 對應 script | 用途 |
+|---|---|---|
+| **dev** | `npm run dev` | 日常開發，HMR |
+| **app (build + run)** | `npm start` | 跑 production 版 |
+| **test** | `npm test` | vitest |
+| **typecheck** / **lint** | — | `tsc --noEmit` / ESLint |
+| **check (typecheck+lint+test)** | `npm run check` | 提交前一次跑完 |
+| **package .app** | `npm run package` | 打包 |
+
+首次開啟專案時：
+
+1. IntelliJ 會偵測到 `package.json` → 提示 **Run 'npm install'**，讓它跑完。
+2. **Settings → Languages & Frameworks → Node.js**：把 Node interpreter 指向
+   `nvm use` 那版（run config 用的是 `node-interpreter value="project"`）。
+3. 若 IntelliJ 把它當成 Java 專案（`.idea/*.iml` 是舊模板殘留、已不進版控）：
+   關掉專案 → `rm -rf .idea/*.iml .idea/misc.xml .idea/modules.xml` → 重開，
+   IntelliJ 會依 `package.json` 重新當 JS 專案匯入（`runConfigurations/` 會保留）。
+
+## 指令一覽
 
 | 指令 | 用途 |
 |---|---|
 | `npm run dev` | electron-vite 開發模式，含 HMR |
+| `npm start` | `electron-vite build` + `preview`（production 版執行） |
+| `npm run check` | typecheck + lint + test 一次跑完 |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | vitest（狀態機 / transcript 解析 / hook 合併） |
+| `npm test` | vitest（狀態機 / transcript 解析 / hook 合併 / `/usage` 解析） |
 | `npm run lint` | ESLint |
-| `npm run package` | `electron-vite build` + `electron-builder --dir` |
+| `npm run rebuild` | 手動把 node-pty 對 Electron ABI 重編 |
+| `npm run package` | `electron-vite build` + `electron-builder --dir`（ad-hoc 簽章，本機自用） |
 
 ## 架構
 

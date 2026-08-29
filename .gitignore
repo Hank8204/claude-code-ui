@@ -1,14 +1,18 @@
 node_modules/
 .obsidian/
 *.orig
+.DS_Store
+*.log
+
+# IntelliJ：只提交共用的 run configurations，其餘個人 IDE 狀態不進版控
+.idea/*
+!.idea/runConfigurations/
 
 # 設計規格文件：本機保留，不進版控（未來存 Google Drive）
 spec_*.md
+
+# 建置產物
 out/
 dist/
-*.log
-.DS_Store
 .vite/
 release/
-.DS_Store
-.idea/

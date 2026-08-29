@@ -12,13 +12,15 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "start": "electron-vite preview",
+    "start": "electron-vite build && electron-vite preview",
+    "preview": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w node-pty",
     "postinstall": "electron-builder install-app-deps",
     "package": "electron-vite build && electron-builder --dir",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "check": "npm run typecheck && npm run lint && npm test"
   },
   "dependencies": {
     "@xterm/addon-fit": "^0.10.0",
