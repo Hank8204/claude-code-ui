@@ -1,4 +1,4 @@
-<!-- @dsCard group="Components" name="RoomToolbar — 一鍵指令列" subtitle="spec_04 §2：/compact /rewind /review Ctrl-C" -->
+<!-- @dsCard group="Components" name="RoomToolbar — 一鍵指令列" subtitle="spec_04 §2：可設定，最多 4 個指令（預設 /compact /clear /rewind /review）" -->
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
@@ -42,12 +42,22 @@
 </head>
 <body>
   <div class="card">
-    <div class="caption">工位底部快捷列（一律走 PTY，樂觀執行）</div>
+    <div class="caption">工位底部快捷列（一律走 PTY，樂觀執行）——指令由設定頁面挑，最多 4 個</div>
     <div class="room-toolbar">
       <button title="壓縮記憶">/compact</button>
+      <button title="清空對話（工位自動接到新 session）">/clear</button>
       <button title="時光倒流">/rewind</button>
       <button title="程式碼審查">/review</button>
-      <button class="danger" title="緊急中斷（送 Ctrl-C）">Ctrl-C</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <div class="caption">Ctrl-C 改到工位標題列的「關閉」鍵，不再佔指令列名額</div>
+    <div class="room-toolbar">
+      <button title="顯示 context 用量明細">/context</button>
+      <button title="顯示花費">/cost</button>
+      <button title="切換思考模型">/model</button>
+      <button title="MCP server 狀態">/mcp</button>
     </div>
   </div>
 </body>

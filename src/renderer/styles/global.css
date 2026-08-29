@@ -6,12 +6,7 @@
   --text-dim: #64748b;
   --room-bg: #e2e8f0;
   --room-border: #cbd5e1;
-  --desk: linear-gradient(160deg, #c9d2df, #aab6c6);
-
-  --figure-light: #ffffff;
-  --figure-mid: #e9edf3;
-  --figure-dark: #c4ccd8;
-  --ground-shadow: rgba(30, 41, 59, 0.28);
+  --plate-shadow: rgba(30, 41, 59, 0.16);
 
   --state-idle: #94a3b8;
   --state-working: #3b82f6;
@@ -33,10 +28,7 @@
     --text-dim: #8b98a8;
     --room-bg: #1e2733;
     --room-border: #33404f;
-    --desk: linear-gradient(160deg, #2b3644, #1d2531);
-    --figure-mid: #dfe5ee;
-    --figure-dark: #aab4c4;
-    --ground-shadow: rgba(0, 0, 0, 0.55);
+    --plate-shadow: rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -207,9 +199,10 @@ body {
 }
 
 .floor-rooms {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
   padding: 16px;
 }
 

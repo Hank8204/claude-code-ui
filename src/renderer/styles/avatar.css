@@ -1,10 +1,16 @@
 /* ============================================================
-   AgentAvatar / OfficeRoom — 純 CSS，零圖片、零 3D 引擎（spec_02 §6）
-   只動 transform 與 opacity；狀態切換用 data attribute。
+   AgentAvatar / OfficeRoom — 純 CSS，零圖片、零 3D 引擎。
+
+   Claude Design 改版（2026-08）：原本的「桌前白色小人 + 俯視辦公室」
+   （spec_02 §1 / §3D / §6）改為「session 名牌」——狀態改以框線顏色 +
+   整塊震動 / 浮動表達，不再有小人肢體動畫。compact 卡片顯示名牌，
+   點擊展開為完整工位（.status-row 取代原 .room-stage）。
+   動畫仍只動 transform / opacity；狀態切換一律用 data attribute。
    ============================================================ */
 
 .office-room {
   position: relative;
+  width: 300px;
   border-radius: 16px;
   background: var(--room-bg);
   border: 3px solid var(--room-border);
@@ -34,6 +40,15 @@
   border-radius: 4px;
   padding: 0 4px;
 }
+.collapse-btn {
+  font-size: 10px;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--room-border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  cursor: pointer;
+}
 .stop-btn {
   margin-left: auto;
   font-size: 10px;
@@ -49,35 +64,268 @@
   border-color: var(--state-error);
 }
 
-.room-stage {
+/* ---- compact 卡片：只顯示名牌，點擊展開 ---- */
+.compact-card {
   position: relative;
-  display: block;
-  width: 100%;
-  height: 200px;
-  border: none;
+  width: 200px;
+  padding: 12px;
   border-radius: 12px;
-  background: transparent;
+  border: 2px solid var(--room-border);
+  background: var(--room-bg);
+  color: inherit;
+  font: inherit;
   cursor: pointer;
-  overflow: hidden;
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
-.room-stage:disabled {
+.compact-card:hover {
+  box-shadow: 0 6px 16px var(--plate-shadow);
+  transform: translateY(-2px);
+}
+.expand-hint {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* ---- session 名牌（取代小人）——分層 DOM：外層搖、內層動 ---- */
+.avatar-anchor {
+  position: relative;
+  width: 100%;
+  display: grid;
+  place-items: center;
+}
+.avatar-burnout {
+  transform-origin: 50% 50%;
+}
+.avatar-state {
+  transform-origin: 50% 50%;
+  transition: border-color 0.3s ease, color 0.3s ease, opacity 0.6s ease;
+}
+.session-plate {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  min-width: 132px;
+  max-width: 170px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 2px solid var(--room-border);
+  background: var(--panel);
+  box-shadow: 0 4px 12px var(--plate-shadow);
+}
+.session-name {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 138px;
+}
+.session-state {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.avatar-state[data-state='idle'] {
+  animation: plate-idle 3.2s ease-in-out infinite alternate;
+}
+@keyframes plate-idle {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-5px);
+  }
+}
+
+.avatar-state[data-state='working'] {
+  border-color: var(--state-working);
+  animation: plate-working 0.11s steps(2, end) infinite;
+  will-change: transform;
+}
+.avatar-state[data-state='working'] .session-state {
+  color: var(--state-working);
+}
+@keyframes plate-working {
+  0% {
+    transform: translate(-1.5px, 0.5px);
+  }
+  100% {
+    transform: translate(1.5px, -0.5px);
+  }
+}
+
+.avatar-state[data-state='committing'] {
+  border-color: var(--state-working);
+  animation: plate-commit 0.62s ease-in-out infinite;
+  will-change: transform;
+}
+.avatar-state[data-state='committing'] .session-state {
+  color: var(--state-working);
+}
+@keyframes plate-commit {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+
+.avatar-state[data-state='waiting_input'] {
+  border-color: var(--state-waiting);
+  animation: plate-waiting 1s ease-in-out infinite;
+  will-change: transform;
+}
+.avatar-state[data-state='waiting_input'] .session-state {
+  color: var(--state-waiting);
+}
+@keyframes plate-waiting {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+  50% {
+    transform: scale(1.045);
+    box-shadow: 0 0 18px 2px rgba(245, 158, 11, 0.5);
+  }
+}
+
+.avatar-state[data-state='error'] {
+  border-color: var(--state-error);
+  transform: rotate(-2deg);
+}
+.avatar-state[data-state='error'] .session-name,
+.avatar-state[data-state='error'] .session-state {
+  color: var(--state-error);
+}
+
+.avatar-state[data-state='disconnected'] {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.avatar-burnout[data-burnout='true'] .avatar-state {
+  border-color: var(--burnout);
+  animation: plate-burnout 0.24s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.avatar-burnout[data-burnout='true'] .session-state {
+  color: var(--burnout);
+}
+@keyframes plate-burnout {
+  from {
+    transform: translateX(-2px) rotate(-1.2deg);
+  }
+  to {
+    transform: translateX(2px) rotate(1.2deg);
+  }
+}
+
+/* ---- 展開後工位內的狀態列（取代小人舞台）---- */
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--room-border);
+  background: var(--panel);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  transition: border-color 0.3s ease, opacity 0.6s ease;
+  margin-bottom: 8px;
+}
+.status-row:disabled {
   cursor: default;
 }
-
-/* 桌子：俯視角遮住下半身 → 小人省略腿部（§6.1） */
-.desk {
-  position: absolute;
-  left: 50%;
-  bottom: 26px;
-  width: 150px;
-  height: 44px;
-  transform: translateX(-50%);
-  background: var(--desk);
-  border-radius: 8px;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18);
+.status-row .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex: none;
+}
+.status-row .status-label {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.status-row[data-state='idle'] {
+  animation: plate-idle 3.2s ease-in-out infinite alternate;
+}
+.status-row[data-state='working'] {
+  border-color: var(--state-working);
+  animation: plate-working 0.11s steps(2, end) infinite;
+}
+.status-row[data-state='working'] .status-dot {
+  background: var(--state-working);
+}
+.status-row[data-state='working'] .status-label {
+  color: var(--state-working);
+}
+.status-row[data-state='committing'] {
+  border-color: var(--state-working);
+  animation: plate-commit 0.62s ease-in-out infinite;
+}
+.status-row[data-state='committing'] .status-dot {
+  background: var(--state-working);
+}
+.status-row[data-state='committing'] .status-label {
+  color: var(--state-working);
+}
+.status-row[data-state='waiting_input'] {
+  border-color: var(--state-waiting);
+  animation: plate-waiting 1s ease-in-out infinite;
+}
+.status-row[data-state='waiting_input'] .status-dot {
+  background: var(--state-waiting);
+}
+.status-row[data-state='waiting_input'] .status-label {
+  color: var(--state-waiting);
+}
+.status-row[data-state='error'] {
+  border-color: var(--state-error);
+  transform: rotate(-1.4deg);
+}
+.status-row[data-state='error'] .status-dot {
+  background: var(--state-error);
+}
+.status-row[data-state='error'] .status-label {
+  color: var(--state-error);
+}
+.status-row[data-state='disconnected'] {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+.office-room[data-burnout='true'] .status-row {
+  border-color: var(--burnout);
+  animation: plate-burnout 0.24s ease-in-out infinite alternate;
+}
+.office-room[data-burnout='true'] .status-dot {
+  background: var(--burnout);
+}
+.office-room[data-burnout='true'] .status-label {
+  color: var(--burnout);
 }
 
-/* 房間邊框光效（§6.4） */
+/* 房間邊框光效 */
 .office-room[data-state='waiting_input'] {
   border-color: var(--state-waiting);
   animation: room-waiting 1s ease-in-out infinite;
@@ -113,238 +361,6 @@
   }
   50% {
     box-shadow: inset 0 0 22px 2px rgba(239, 68, 68, 0.6);
-  }
-}
-
-/* ---- 分層 DOM（§6.3）：外層搖、內層動 ---- */
-.avatar-anchor {
-  position: absolute;
-  left: 50%;
-  bottom: 60px;
-  transform: translateX(-50%);
-  width: 72px;
-  height: 110px;
-}
-
-.ground-shadow {
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 60px;
-  height: 16px;
-  transform: translateX(-50%);
-  background: radial-gradient(ellipse at center, var(--ground-shadow) 0%, transparent 70%);
-  border-radius: 50%;
-}
-.ground-shadow[data-state='idle'] {
-  animation: shadow-idle 3s ease-in-out infinite alternate;
-}
-
-.avatar-burnout,
-.avatar-state {
-  width: 100%;
-  height: 100%;
-  transform-origin: 50% 90%;
-}
-.avatar-parts {
-  position: absolute;
-  inset: 0;
-}
-
-.head {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 34px;
-  height: 34px;
-  transform: translateX(-50%);
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
-  box-shadow: inset -3px -4px 6px rgba(0, 0, 0, 0.12);
-}
-.body {
-  position: absolute;
-  left: 50%;
-  top: 30px;
-  width: 44px;
-  height: 62px;
-  transform: translateX(-50%);
-  border-radius: 22px 22px 16px 16px;
-  background: linear-gradient(135deg, var(--figure-light) 0%, var(--figure-mid) 55%, var(--figure-dark) 100%);
-  box-shadow: inset -4px -5px 9px rgba(0, 0, 0, 0.14);
-}
-.arm {
-  position: absolute;
-  top: 34px;
-  width: 12px;
-  height: 44px;
-  border-radius: 6px;
-  background: linear-gradient(135deg, var(--figure-light), var(--figure-dark));
-  box-shadow: inset -2px -2px 4px rgba(0, 0, 0, 0.12);
-}
-.arm.left {
-  left: 6px;
-  transform-origin: 50% 6px;
-}
-.arm.right {
-  right: 6px;
-  transform-origin: 50% 6px;
-}
-
-/* 氣泡：::after content，opacity + translateY 淡入（§6.4） */
-.avatar-parts::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  top: -30px;
-  transform: translate(-50%, 6px);
-  font-size: 20px;
-  opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s ease;
-  pointer-events: none;
-}
-.avatar-state[data-state='working'] .avatar-parts::after {
-  content: '📝';
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-.avatar-state[data-state='committing'] .avatar-parts::after {
-  content: '📦';
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-.avatar-state[data-state='waiting_input'] .avatar-parts::after {
-  content: '❓';
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-.avatar-state[data-state='error'] .avatar-parts::after {
-  content: '⚠️';
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-.avatar-burnout[data-burnout='true'] .avatar-parts::after {
-  content: '🥵';
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
-
-/* ---- state 動畫（§6.4）—— 只動 transform / opacity ---- */
-.avatar-state[data-state='idle'] {
-  animation: fig-idle 3s ease-in-out infinite alternate;
-}
-@keyframes fig-idle {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(-3px);
-  }
-}
-@keyframes shadow-idle {
-  from {
-    transform: translateX(-50%) scale(1);
-    opacity: 0.9;
-  }
-  to {
-    transform: translateX(-50%) scale(0.82);
-    opacity: 0.6;
-  }
-}
-
-.avatar-state[data-state='working'] {
-  animation: fig-working 0.12s steps(2, end) infinite;
-  will-change: transform;
-}
-@keyframes fig-working {
-  0% {
-    transform: translateX(-1px);
-  }
-  100% {
-    transform: translateX(1px);
-  }
-}
-.avatar-state[data-state='working'] .arm.left {
-  animation: arm-work 0.5s ease-in-out infinite alternate;
-}
-.avatar-state[data-state='working'] .arm.right {
-  animation: arm-work 0.5s ease-in-out infinite alternate reverse;
-}
-@keyframes arm-work {
-  from {
-    transform: rotate(6deg);
-  }
-  to {
-    transform: rotate(-14deg);
-  }
-}
-
-/* committing（spec_04 §4）：搬箱子——身體小幅上下頓、手臂前抬 */
-.avatar-state[data-state='committing'] {
-  animation: fig-commit 0.6s ease-in-out infinite;
-  will-change: transform;
-}
-@keyframes fig-commit {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
-.avatar-state[data-state='committing'] .arm.left,
-.avatar-state[data-state='committing'] .arm.right {
-  transform: rotate(-60deg);
-}
-
-.avatar-state[data-state='waiting_input'] {
-  animation: fig-waiting 0.3s ease-out forwards;
-  will-change: transform;
-}
-@keyframes fig-waiting {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.08);
-  }
-}
-
-.avatar-state[data-state='error'] {
-  animation: fig-error 0.4s ease-in forwards;
-  filter: grayscale(1);
-  will-change: transform;
-}
-@keyframes fig-error {
-  from {
-    transform: rotate(0);
-  }
-  to {
-    transform: rotate(90deg) translateY(10px);
-  }
-}
-
-.avatar-state[data-state='disconnected'] {
-  animation: fig-disc 0.6s ease forwards;
-}
-@keyframes fig-disc {
-  to {
-    opacity: 0.35;
-  }
-}
-
-/* ---- burnout 疊加層（§6.3）—— 只做 rotate ±3deg ---- */
-.avatar-burnout[data-burnout='true'] {
-  animation: fig-burnout 0.25s ease-in-out infinite alternate;
-  will-change: transform;
-}
-@keyframes fig-burnout {
-  from {
-    transform: rotate(-3deg);
-  }
-  to {
-    transform: rotate(3deg);
   }
 }
 
@@ -436,6 +452,23 @@
   color: var(--state-error);
   border-color: var(--state-error);
 }
+/* burnout 時 /compact 轉紅 + 脈動，取代原「喝咖啡」按鈕 */
+.room-toolbar button.compact-alert {
+  font-weight: 700;
+  color: var(--stamina-red);
+  border-color: var(--stamina-red);
+  background: rgba(239, 68, 68, 0.08);
+  animation: compact-pulse 1.1s ease-in-out infinite;
+}
+@keyframes compact-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: 0 0 10px 1px rgba(239, 68, 68, 0.45);
+  }
+}
 
 /* StaminaBar（spec_02 §3C） */
 .stamina {
@@ -483,17 +516,21 @@
   color: var(--text-dim);
   margin-top: 6px;
 }
-.coffee-btn {
+/* Context 偏高提醒（取代原 .coffee-btn）——按下即 /compact */
+.compact-hint {
   margin-top: 8px;
   width: 100%;
   padding: 7px 10px;
   font-size: 12px;
+  font-weight: 700;
+  text-align: center;
   border: 1px solid var(--stamina-red);
   color: var(--stamina-red);
-  background: transparent;
+  background: rgba(239, 68, 68, 0.08);
   border-radius: 8px;
   cursor: pointer;
 }
+
 .room-actions {
   display: flex;
   gap: 6px;
@@ -516,22 +553,22 @@
   border-color: var(--state-error);
 }
 
-/* §6.2：尊重 prefers-reduced-motion —— 停用動畫，改靜態顏色 + 氣泡 */
+/* §6.2：尊重 prefers-reduced-motion —— 停用動畫，改靜態顏色 */
 @media (prefers-reduced-motion: reduce) {
   .office-room *,
-  .office-room {
+  .office-room,
+  .compact-card *,
+  .compact-card,
+  .session-plate {
     animation: none !important;
     transition: none !important;
   }
   .avatar-state[data-state='waiting_input'] {
-    transform: scale(1.08);
+    transform: scale(1.045);
+    box-shadow: 0 0 18px 2px rgba(245, 158, 11, 0.5);
   }
   .avatar-state[data-state='error'] {
-    transform: rotate(90deg) translateY(10px);
-  }
-  .avatar-state[data-state='committing'] .arm.left,
-  .avatar-state[data-state='committing'] .arm.right {
-    transform: rotate(-60deg);
+    transform: rotate(-2deg);
   }
   .avatar-state[data-state='disconnected'] {
     opacity: 0.35;

@@ -35,8 +35,8 @@ export function StaminaBar({ usage, stale = false, readonly, onCompact }: Props)
         <span title={usage?.model ?? '未知 model'}>{formatCost(usage)}</span>
       </div>
       {zone === 'red' && !readonly && (
-        <button type="button" className="coffee-btn" onClick={onCompact}>
-          ☕ 喝咖啡（清理 Context）
+        <button type="button" className="compact-hint" onClick={onCompact}>
+          Context 偏高，建議 /compact
         </button>
       )}
     </div>

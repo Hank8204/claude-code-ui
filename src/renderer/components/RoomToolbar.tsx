@@ -1,30 +1,40 @@
+import { resolveToolbar } from '@shared/toolbar.js'
+import { useToolbar, useCustomCommands } from '../store/settingsStore.js'
+
 interface Props {
   sessionId: string
+  /** Context 逼近上限：把 /compact 轉為紅色脈動的警示按鈕（取代原「喝咖啡」）。 */
+  compactAlert?: boolean
 }
 
-/** spec_04 §2：一鍵指令快捷列。全部走 PTY，樂觀執行。 */
-export function RoomToolbar({ sessionId }: Props): JSX.Element {
-  const send = (command: string) => () => void window.ccui.sendCommand(sessionId, command)
+/**
+ * spec_04 §2：工位一鍵指令快捷列。要放哪些指令由設定頁面決定（內建 + 自訂，最多 4 個）。
+ * 全部走 PTY、樂觀執行；`/compact` 走專屬管道（會觸發 PostCompact 重新取樣）。
+ */
+export function RoomToolbar({ sessionId, compactAlert = false }: Props): JSX.Element | null {
+  const enabled = useToolbar()
+  const custom = useCustomCommands()
+  const defs = resolveToolbar(enabled, custom)
+  if (defs.length === 0) return null
+
+  const run = (id: string, command: string) => (): void => {
+    if (id === '/compact') void window.ccui.compact(sessionId)
+    else void window.ccui.sendCommand(sessionId, command.endsWith('\r') ? command : `${command}\r`)
+  }
 
   return (
     <div className="room-toolbar">
-      <button type="button" title="壓縮記憶" onClick={() => void window.ccui.compact(sessionId)}>
-        /compact
-      </button>
-      <button type="button" title="時光倒流（開啟檢查點選單）" onClick={send('/rewind\r')}>
-        /rewind
-      </button>
-      <button type="button" title="程式碼審查" onClick={send('/review\r')}>
-        /review
-      </button>
-      <button
-        type="button"
-        className="danger"
-        title="緊急中斷（送 Ctrl-C）"
-        onClick={() => void window.ccui.interrupt(sessionId)}
-      >
-        Ctrl-C
-      </button>
+      {defs.map((def) => (
+        <button
+          key={def.id}
+          type="button"
+          className={def.id === '/compact' && compactAlert ? 'compact-alert' : undefined}
+          title={def.title}
+          onClick={run(def.id, def.command ?? def.id)}
+        >
+          {def.label}
+        </button>
+      ))}
     </div>
   )
 }

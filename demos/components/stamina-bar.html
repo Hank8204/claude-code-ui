@@ -44,10 +44,10 @@
   .stamina-meta {
     display: flex; justify-content: space-between; font-size: 11px; color: var(--text-dim); margin-top: 6px;
   }
-  .coffee-btn {
-    margin-top: 8px; width: 100%; padding: 7px 10px; font-size: 12px;
-    border: 1px solid var(--stamina-red); color: var(--stamina-red); background: transparent;
-    border-radius: 8px; cursor: pointer;
+  .compact-hint {
+    margin-top: 8px; width: 100%; padding: 7px 10px; font-size: 12px; font-weight: 700; text-align: center;
+    border: 1px solid var(--stamina-red); color: var(--stamina-red); background: rgba(239, 68, 68, .08);
+    border-radius: 8px;
   }
 </style>
 </head>
@@ -57,7 +57,7 @@
     const V = [
       { cap: 'green — Context 45%', zone: 'green', w: 45, label: 'Context 45%', cost: '$0.0121', coffee: false },
       { cap: 'yellow — Context 68%', zone: 'yellow', w: 68, label: 'Context 68%', cost: '$0.0644', coffee: false },
-      { cap: 'red — Context 88%（出現咖啡按鈕）', zone: 'red', w: 88, label: 'Context 88%', cost: '$0.1902', coffee: true },
+      { cap: 'red — Context 88%（提醒 /compact）', zone: 'red', w: 88, label: 'Context 88%', cost: '$0.1902', coffee: true },
       { cap: '未知 — 等待 transcript', zone: 'unknown', w: 100, label: 'Context 未知（等待 transcript）', cost: '—', coffee: false },
       { cap: '未知 — model 無對照', zone: 'unknown', w: 100, label: 'Context 未知（model 無對照：claude-x）', cost: '$0.02', coffee: false },
       { cap: 'stale — 接回後的舊值', zone: 'green', w: 45, label: 'Context 45%（上次）', cost: '$0.0121', coffee: false, stale: true }
@@ -70,7 +70,7 @@
             <div class="stamina-fill" data-zone="${v.zone}" data-stale="${!!v.stale}" style="width:${v.w}%"></div>
           </div>
           <div class="stamina-meta"><span>${v.label}</span><span>${v.cost}</span></div>
-          ${v.coffee ? '<button class="coffee-btn">☕ 喝咖啡（清理 Context）</button>' : ''}
+          ${v.coffee ? '<div class="compact-hint">Context 偏高，建議 /compact</div>' : ''}
         </div>
       </div>`).join('')
   </script>
