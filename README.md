@@ -84,8 +84,13 @@ src/
 * **M1**（完成）：單一專案 PTY → xterm 可打字 → hook 通了 → 小人會動；含打包驗證
 * **M2**（完成）：transcript tail → 體力條 + `/compact` 咖啡按鈕
 * **M3**（大致完成）：多專案樓層、多 session、設定持久化、error / disconnected、原生資料夾選取器
-* **spec_04**（完成）：一鍵指令列（☕/🧹/⏪/🔍/🛑）、常駐開關（模型 / 思考深度 / 自動批准 / 極速）、
-  `committing` 狀態（git commit → 小人搬箱子 📦）
+* **spec_04**（完成）：一鍵指令列、常駐開關（模型 / 思考深度 / 自動批准 / 極速）、
+  `committing` 狀態
+* **Claude Design 改版**（2026-08）：小人 → session 名牌、compact 卡片點擊展開；
+  一鍵指令列改成可在「設定」（⚙）裡挑，最多 4 個（內建目錄 + 自訂指令；預設
+  `/compact` `/clear` `/rewind` `/review`）；Ctrl-C 移到工位標題列的「關閉」鍵；
+  `/clear` 換 session id 的問題已修
+  （ISSUE-009，工位會自動接到新 id）
 * **M4**（未來）：外部 session 唯讀監看
 
 一鍵指令與常駐開關的細節、限制見 spec_04 與 [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md)

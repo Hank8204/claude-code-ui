@@ -9,12 +9,14 @@ import { ProjectFloor } from './components/ProjectFloor.js'
 import { TerminalView } from './components/TerminalView.js'
 import { sessionStore, useAppState, selectSessionsByProject } from './store/sessionStore.js'
 import { AddProjectBar } from './components/AddProjectBar.js'
+import { SettingsPanel } from './components/SettingsPanel.js'
 
 /** 根元件：掛載時訂閱 Main → Renderer 事件並 hydrate store。 */
 export function App(): JSX.Element {
   const state = useAppState()
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
     void window.ccui.getState().then((s) => sessionStore.hydrate(s))
@@ -59,7 +61,9 @@ export function App(): JSX.Element {
 
   return (
     <div className="app-shell">
-      <AddProjectBar />
+      <AddProjectBar onOpenSettings={() => setSettingsOpen(true)} />
+
+      {settingsOpen && <SettingsPanel onClose={() => setSettingsOpen(false)} />}
 
       {error && (
         <div className="app-error" role="alert">

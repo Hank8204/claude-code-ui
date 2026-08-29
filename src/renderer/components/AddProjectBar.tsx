@@ -11,8 +11,12 @@ const MODEL_LABEL: Record<ModelChoice, string> = {
 }
 const EFFORTS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
 
+interface Props {
+  onOpenSettings: () => void
+}
+
 /** 「新增專案」：原生資料夾選取器（ISSUE-003）＋ spec_04 §3 建立時的開關預設值。 */
-export function AddProjectBar(): JSX.Element {
+export function AddProjectBar({ onOpenSettings }: Props): JSX.Element {
   const [path, setPath] = useState('')
   const [name, setName] = useState('')
   const [controls, setControls] = useState<SessionControls>(readSessionDefaults)
@@ -97,6 +101,16 @@ export function AddProjectBar(): JSX.Element {
 
       <button type="button" onClick={submit}>
         新增專案 + session
+      </button>
+
+      <button
+        type="button"
+        className="settings-gear"
+        title="設定"
+        aria-label="開啟設定"
+        onClick={onOpenSettings}
+      >
+        ⚙
       </button>
     </header>
   )
