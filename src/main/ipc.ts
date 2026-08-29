@@ -30,7 +30,7 @@ export function registerIpcHandlers(manager: SessionManager, emit: Emit): void {
   ipcMain.handle('session:restart', (_e, id: string) => guard(() => manager.restart(id))())
   ipcMain.handle('session:rename', (_e, id: string, name: string) => manager.rename(id, name))
   ipcMain.handle('session:stop', (_e, id: string) => manager.stop(id))
-  ipcMain.handle('session:forget', (_e, id: string) => manager.forget(id))
+  ipcMain.handle('session:forget', (_e, id: string) => guard(() => manager.forget(id))())
   ipcMain.handle('session:input', (_e, id: string, data: string) => manager.input(id, data))
   ipcMain.handle('session:resize', (_e, id: string, cols: number, rows: number) =>
     manager.resize(id, cols, rows)
@@ -42,6 +42,7 @@ export function registerIpcHandlers(manager: SessionManager, emit: Emit): void {
   ipcMain.handle('session:interrupt', (_e, id: string) =>
     guard(() => manager.interrupt(id))()
   )
+  ipcMain.handle('session:close', (_e, id: string) => guard(() => manager.close(id))())
   ipcMain.handle('session:setControls', (_e, id: string, patch: Partial<SessionControls>) =>
     guard(() => manager.setControls(id, patch))()
   )

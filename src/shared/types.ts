@@ -101,6 +101,8 @@ export interface RendererToMain {
   'session:sendCommand': (sessionId: string, command: string) => Promise<void>
   /** spec_04 §2：送出 Ctrl-C（`\x03`）中斷當前執行。 */
   'session:interrupt': (sessionId: string) => Promise<void>
+  /** 工位標題列「關閉」：連送兩次 Ctrl-C 讓 claude 直接跳出。 */
+  'session:close': (sessionId: string) => Promise<void>
   /** spec_04 §3：更新常駐開關，執行中會即時套用到 PTY。 */
   'session:setControls': (
     sessionId: string,
@@ -125,6 +127,8 @@ export interface MainToRenderer {
   'session:burnout': { sessionId: string; isBurnout: boolean }
   'session:controls': { sessionId: string; controls: SessionControls }
   'session:ended': { sessionId: string; reason: string }
+  /** `/clear` 讓同一個 PTY 換了 session id——renderer 需把開啟中的終端機 key 換過去。 */
+  'session:reattached': { oldSessionId: string; newSessionId: string }
   'project:sessions': { projectId: string; sessionIds: string[] }
   'app:state': AppStateSnapshot
   /** 使用者操作失敗（如找不到 claude CLI）——renderer 顯示可讀訊息。 */

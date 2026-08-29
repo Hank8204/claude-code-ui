@@ -66,6 +66,26 @@ describe('SessionManager 持久化（spec_01 §5）', () => {
     expect(emit).toHaveBeenCalledWith('app:state', expect.anything())
   })
 
+  it('forget 休眠工位會從 getState 消失並寫回持久化', async () => {
+    const ws = fakeWorkspace({ projects: [PROJECT], sessions: [SESSION] })
+    const emit = vi.fn()
+    const mgr = track(new SessionManager(emit, ws))
+    mgr.restore()
+
+    await mgr.forget('s1')
+
+    expect(mgr.getState().sessions).toHaveLength(0)
+    expect(ws.load().sessions).toHaveLength(0)
+    expect(ws.load().projects).toHaveLength(1)
+    expect(emit).toHaveBeenCalledWith('app:state', expect.anything())
+  })
+
+  it('forget 不存在的 session 丟 SessionNotFoundError', async () => {
+    const mgr = track(new SessionManager(vi.fn(), fakeWorkspace({ projects: [], sessions: [] })))
+    mgr.restore()
+    await expect(mgr.forget('nope')).rejects.toThrow(/找不到 session/)
+  })
+
   it('rename 不存在的 session 丟 SessionNotFoundError', () => {
     const mgr = track(new SessionManager(vi.fn(), fakeWorkspace({ projects: [], sessions: [] })))
     mgr.restore()

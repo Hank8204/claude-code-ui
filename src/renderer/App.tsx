@@ -44,6 +44,10 @@ export function App(): JSX.Element {
       window.ccui.on('session:controls', (p) => {
         const e = p as { sessionId: string; controls: SessionControls }
         sessionStore.patchControls(e.sessionId, e.controls)
+      }),
+      window.ccui.on('session:reattached', (p) => {
+        const e = p as { oldSessionId: string; newSessionId: string }
+        setOpenSessionId((cur) => (cur === e.oldSessionId ? e.newSessionId : cur))
       })
     ]
     return () => offs.forEach((off) => off())

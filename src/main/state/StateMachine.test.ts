@@ -66,6 +66,20 @@ describe('StateMachine — hook 事件序列', () => {
     sm.applyHookEvent('PreToolUse', { toolName: 'Read', command: 'git commit' })
     expect(states).toEqual(['working'])
   })
+
+  it('markReattached：/clear 後 disconnected → idle，burnout 一併清掉', () => {
+    const { sm, states, burnouts } = make()
+    sm.applyHookEvent('PreToolUse')
+    sm.updateContextRatio(0.9)
+    sm.markEnded() // SessionEnd hook → disconnected
+    expect(sm.state).toBe('disconnected')
+
+    sm.markReattached()
+    expect(sm.state).toBe('idle')
+    expect(sm.isBurnout).toBe(false)
+    expect(states).toEqual(['working', 'disconnected', 'idle'])
+    expect(burnouts).toEqual([true, false])
+  })
 })
 
 describe('StateMachine — burnout 與 state 正交', () => {

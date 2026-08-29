@@ -64,6 +64,15 @@ export class StateMachine {
     this.transition('disconnected')
   }
 
+  /**
+   * `/clear` 後同一個 PTY 換了 session id（見 fork-adopt.ts）——狀態回 idle，
+   * burnout 清掉、交給新 transcript 的 contextRatio 重新驅動。
+   */
+  markReattached(): void {
+    this.transition('idle')
+    this.updateContextRatio(null)
+  }
+
   /** 由 transcript 佔用率更新 burnout。ratio 為 null（未知 model）時不觸發。 */
   updateContextRatio(ratio: number | null): void {
     const next = ratio !== null && ratio > BURNOUT_THRESHOLD

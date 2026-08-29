@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { basename } from 'node:path'
 import { ClaudeSession } from './ClaudeSession.js'
 import { normalizeControls } from './controls.js'
+import { pickForkParent, type ForkCandidate } from './fork-adopt.js'
 import { TranscriptReader } from '../transcript/TranscriptReader.js'
 import { resolveClaudeEnv, type ClaudeEnv } from '../cli-resolver.js'
 import { SessionNotFoundError } from '../errors.js'
@@ -41,6 +42,8 @@ export class SessionManager {
   /** 休眠 session 的 transcript reader——抓延遲寫出的 transcript、補上 usage。 */
   private readonly dormantReaders = new Map<string, TranscriptReader>()
   private readonly dormantUsage = new Map<string, UsageSnapshot>()
+  /** sessionId → 轉 disconnected / error 的時間戳。`/clear` fork adopt 的時間窗判斷用。 */
+  private readonly endedAt = new Map<string, number>()
   private claudeEnv: ClaudeEnv | null = null
   private foregroundId: string | null = null
 
@@ -71,8 +74,32 @@ export class SessionManager {
     void reader.start()
   }
 
-  /** 使用者移除一個休眠工位（M1：目前只能移除 disconnected 的）。 */
+  /**
+   * 使用者移除一個工位。可移除：
+   * (1) 休眠工位（app 重啟後由持久化重建的）；
+   * (2) 本次執行中已 `disconnected` / `error` 的 live session——它仍在 `sessions`
+   *     裡（`stop()` / PTY exit 都不會把它移到 `dormant`），舊版只查 `dormant`
+   *     所以這種情況「移除」按了沒反應。
+   * 執行中的 session 不允許移除，請先「停止」。
+   */
   async forget(sessionId: string): Promise<void> {
+    const live = this.sessions.get(sessionId)
+    if (live) {
+      const state = live.snapshot().state
+      if (state !== 'disconnected' && state !== 'error') {
+        throw new Error(`session ${sessionId} 仍在執行中，請先停止再移除`)
+      }
+      await live.dispose('user-forget', true)
+      this.sessions.delete(sessionId)
+      this.endedAt.delete(sessionId)
+      await this.dormantReaders.get(sessionId)?.stop()
+      this.dormantReaders.delete(sessionId)
+      this.dormantUsage.delete(sessionId)
+      this.persist()
+      this.broadcastProjectSessions(live.projectId)
+      return
+    }
+
     const record = this.dormant.get(sessionId)
     if (!record) throw new SessionNotFoundError(sessionId)
     await this.dormantReaders.get(sessionId)?.stop()
@@ -118,6 +145,7 @@ export class SessionManager {
     await this.sessions.get(sessionId)?.dispose('restart')
     this.sessions.delete(sessionId)
     this.dormant.delete(sessionId)
+    this.endedAt.delete(sessionId)
     await this.dormantReaders.get(sessionId)?.stop()
     this.dormantReaders.delete(sessionId)
 
@@ -181,6 +209,11 @@ export class SessionManager {
     this.require(sessionId).interrupt()
   }
 
+  /** 工位標題列「關閉」——連送兩次 Ctrl-C 讓 claude 直接跳出。 */
+  close(sessionId: string): void {
+    this.require(sessionId).close()
+  }
+
   /** spec_04 §3：更新常駐開關。 */
   setControls(sessionId: string, patch: Partial<SessionControls>): void {
     this.require(sessionId).setControls(patch)
@@ -198,14 +231,56 @@ export class SessionManager {
   dispatchHookEvent(event: HookEvent): void {
     const session = this.sessions.get(event.sessionId)
     console.error(
-      `[hook] ${event.hookEventName} session=${event.sessionId.slice(0, 8)} known=${Boolean(session)} tp=${event.transcriptPath ?? '-'}`
+      `[hook] ${event.hookEventName} session=${event.sessionId.slice(0, 8)} known=${Boolean(session)} src=${event.source ?? '-'} tp=${event.transcriptPath ?? '-'}`
     )
-    if (!session) return
+    if (!session) {
+      if (event.hookEventName === 'SessionStart') void this.tryAdoptFork(event)
+      return
+    }
     if (event.transcriptPath) session.noteTranscriptPath(event.transcriptPath)
     session.handleHookEvent(event.hookEventName, {
       toolName: event.toolName,
       command: event.command
     })
+  }
+
+  /**
+   * `/clear` 讓 claude 在同一個 PTY 內換了新 session id（ISSUE-009）。收到那個未知 id
+   * 的 SessionStart 時，把「剛斷線但 PTY 還活著」的工位接到新 id：工位不會卡在
+   * disconnected，「接回」也會 `--resume` 到 clear 之後的（空）對話。
+   */
+  private async tryAdoptFork(event: HookEvent): Promise<void> {
+    const candidates: ForkCandidate[] = [...this.sessions.values()].map((s) => ({
+      sessionId: s.sessionId,
+      projectPath: s.projectPath,
+      endedAt: this.endedAt.get(s.sessionId),
+      hasLivePty: s.hasLivePty
+    }))
+    const parentId = pickForkParent(
+      { cwd: event.cwd, source: event.source },
+      candidates,
+      Date.now()
+    )
+    if (!parentId) return
+
+    const parent = this.sessions.get(parentId)
+    if (!parent) return
+    console.error(
+      `[hook] adopt fork ${parentId.slice(0, 8)} → ${event.sessionId.slice(0, 8)}`
+    )
+
+    await parent.adoptForkedSession(event.sessionId, event.transcriptPath)
+    this.sessions.delete(parentId)
+    this.sessions.set(event.sessionId, parent)
+    this.endedAt.delete(parentId)
+    if (this.foregroundId === parentId) this.foregroundId = event.sessionId
+
+    this.emit('session:reattached', {
+      oldSessionId: parentId,
+      newSessionId: event.sessionId
+    })
+    this.persist()
+    this.broadcastProjectSessions(parent.projectId)
   }
 
   getState(): AppStateSnapshot {
@@ -235,9 +310,12 @@ export class SessionManager {
         this.emit('session:output', { sessionId: session.sessionId, data })
       }
     })
-    session.on('state', (state) =>
+    session.on('state', (state) => {
       this.emit('session:state', { sessionId: session.sessionId, state })
-    )
+      if (state === 'disconnected' || state === 'error') {
+        this.endedAt.set(session.sessionId, Date.now())
+      }
+    })
     session.on('usage', (usage) =>
       this.emit('session:usage', { sessionId: session.sessionId, usage })
     )

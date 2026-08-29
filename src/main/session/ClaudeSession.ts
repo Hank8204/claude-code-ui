@@ -56,14 +56,15 @@ const RESUME_FALLBACK_WINDOW_MS = 5000
  * StateMachine 由外部餵入的 hook 事件驅動。PTY 可為 null（未來的唯讀監看 session）。
  */
 export class ClaudeSession extends EventEmitter<SessionEvents> {
-  readonly sessionId: string
+  /** 非 readonly：`/clear` 會讓同一個 PTY 換 session id（見 adoptForkedSession）。 */
+  sessionId: string
   readonly projectId: string
   readonly projectPath: string
   displayName: string
 
   private pty: IPty | null = null
   private readonly state: StateMachine
-  private readonly transcript: TranscriptReader
+  private transcript: TranscriptReader
   private readonly batcher: OutputBatcher
   private controls: SessionControls
   private usageSnapshot: UsageSnapshot | null = null
@@ -92,17 +93,44 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
       (b) => this.emit('burnout', b)
     )
     this.batcher = new OutputBatcher((data) => this.emit('output', data))
-    this.transcript = new TranscriptReader(this.sessionId, (snap) => {
-      this.usageSnapshot = snap
-      this.usageStale = false
-      this.state.updateContextRatio(snap.contextRatio)
-      this.emit('usage', snap)
-      this.markResumable()
-    })
+    this.transcript = new TranscriptReader(this.sessionId, (snap) => this.onUsageSnapshot(snap))
+  }
+
+  private onUsageSnapshot(snap: UsageSnapshot): void {
+    this.usageSnapshot = snap
+    this.usageStale = false
+    this.state.updateContextRatio(snap.contextRatio)
+    this.emit('usage', snap)
+    this.markResumable()
   }
 
   get isReadonly(): boolean {
     return this.config.readonly ?? false
+  }
+
+  /** PTY 還在（未 dispose、未 exit）。fork adopt 只接得住 PTY 還活著的工位。 */
+  get hasLivePty(): boolean {
+    return this.pty !== null
+  }
+
+  /**
+   * `/clear`（或其他讓同一個 claude 進程換 session id 的操作）發生時呼叫。
+   * PTY / batcher / controls 不動，只換追蹤的 id 與 transcript 來源，狀態回 idle。
+   * 舊 usage 先留著標「上次」，等新 transcript 到來再更新。
+   */
+  async adoptForkedSession(newSessionId: string, transcriptPath?: string): Promise<void> {
+    this.log(`adopt fork → ${newSessionId.slice(0, 8)}（PTY 不變）`)
+    this.sessionId = newSessionId
+    this.resumable = false
+    this.resumeFailed = false
+    this.usageStale = this.usageSnapshot !== null
+
+    await this.transcript.stop()
+    this.transcript = new TranscriptReader(newSessionId, (snap) => this.onUsageSnapshot(snap))
+    if (transcriptPath) this.transcript.setPathHint(transcriptPath)
+    await this.transcript.start()
+
+    this.state.markReattached()
   }
 
   /** transcript 已存在——這個 session 現在可以被 `claude --resume` 接回。 */
@@ -158,6 +186,16 @@ export class ClaudeSession extends EventEmitter<SessionEvents> {
   interrupt(): void {
     if (!this.pty) throw new ReadonlySessionError(this.sessionId)
     this.pty.write('\x03')
+  }
+
+  /**
+   * 工位標題列「關閉」：連送兩次 Ctrl-C。
+   * 執行中 → 第一次中斷當前 turn、第二次讓 claude 跳出；閒置 → 兩次直接跳出。
+   */
+  close(): void {
+    if (!this.pty) throw new ReadonlySessionError(this.sessionId)
+    this.pty.write('\x03')
+    setTimeout(() => this.pty?.write('\x03'), 300)
   }
 
   /** hook payload 帶來的 transcript_path，轉給 TranscriptReader 作定位提示。 */

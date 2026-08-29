@@ -18,6 +18,8 @@ export interface HookEvent {
   /** PreToolUse 對 Bash 工具時帶入 `tool_input.command`——spec_04 §4 committing 判斷用。 */
   command?: string
   transcriptPath?: string
+  /** SessionStart 專屬：startup | resume | clear | compact。舊版 claude 可能沒有。 */
+  source?: string
 }
 
 /**
@@ -105,7 +107,8 @@ export class HookBridgeServer {
       cwd: typeof r.cwd === 'string' ? r.cwd : '',
       toolName: typeof r.tool_name === 'string' ? r.tool_name : undefined,
       command: readCommand(r.tool_input),
-      transcriptPath: typeof r.transcript_path === 'string' ? r.transcript_path : undefined
+      transcriptPath: typeof r.transcript_path === 'string' ? r.transcript_path : undefined,
+      source: typeof r.source === 'string' ? r.source : undefined
     })
   }
 }

@@ -62,19 +62,6 @@
   `bypassPermissions` 只能靠啟動參數。執行中按開關只送一次 Shift-Tab 做最佳努力。
 - **下一步**：想要真正的「全自動」請在建立 session 時勾「自動批准」。
 
-### ISSUE-009 · `/clear` 會換掉 session id，打破本 App 的追蹤
-- **嚴重度**：Medium
-- **分類**：`upstream` `correctness`
-- **狀態**：已從一鍵指令列移除 `/clear`（2026-08-27）
-- **現象**：按 `/clear` 後小人變暗、按「接回」後被清掉的對話又跑回來。
-- **根因**：claude `/clear` 會結束當前 session、以**全新 session id** 重開。本 App 用
-  `--session-id X` 釘住 session：clear 之後
-  (1) 舊 id 收到 `SessionEnd` → 狀態機轉 `disconnected`（小人變暗）；
-  (2) 新 id 的 hook 事件因 `known=false` 被忽略；
-  (3) 「接回」走 `claude --resume 舊id` → 載回的是 clear **之前**的對話。
-- **緩解**：拿掉 `/clear` 按鈕。要乾淨重來請用「停止」再新增一個 session。
-- **下一步**：M4 若要支援，需在送 `/clear` 後從同一 PTY/cwd 的 hook 事件裡認領新 session id 並重新綁定。
-
 ### ISSUE-004 · PTY 非預期退出 → error 狀態未實機驗證
 - **嚴重度**：Low
 - **分類**：`test-gap`
@@ -102,6 +89,8 @@
 
 | ID | 標題 | commit |
 |---|---|---|
+| ISSUE-010 | 「移除」按鈕對「本次執行中才斷線」的工位無效——`forget()` 只查 `dormant`，但這種 session 仍在 `sessions` 裡；改為兩個 map 都處理，IPC 也補 `guard` 讓錯誤浮上來 | (本次) |
+| ISSUE-009 | `/clear` 換掉 session id 打破追蹤（假斷線、接回帶回舊對話）→ 收到未知 id 的 `SessionStart`（`source=clear` / 同 cwd 剛斷線）時把工位接到新 id，PTY 不變、發 `session:reattached`。純判斷在 `fork-adopt.ts` | (本次) |
 | ISSUE-003 | 新增專案只能貼路徑 → 加原生資料夾選取器（`project:pick` + 「瀏覽…」按鈕） | (本次) |
 | ISSUE-002 | CLI 找不到時沒有錯誤 UI → app:error 事件 + 錯誤橫幅 + 選單「指定 claude CLI 路徑」 | `a05012a` |
 | — | packaged .app `node: command not found`（PATH 未傳給 spawn 的 claude） | `c1a134b` |

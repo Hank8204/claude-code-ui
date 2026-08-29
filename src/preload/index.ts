@@ -12,6 +12,7 @@ const SUBSCRIBABLE: MainToRendererChannel[] = [
   'session:burnout',
   'session:controls',
   'session:ended',
+  'session:reattached',
   'project:sessions',
   'app:state',
   'app:error'
@@ -34,6 +35,7 @@ const api = {
   sendCommand: (id: string, command: string) =>
     ipcRenderer.invoke('session:sendCommand', id, command),
   interrupt: (id: string) => ipcRenderer.invoke('session:interrupt', id),
+  closeSession: (id: string) => ipcRenderer.invoke('session:close', id),
   setControls: (id: string, patch: Partial<SessionControls>) =>
     ipcRenderer.invoke('session:setControls', id, patch),
   pickProjectDir: (): Promise<string | null> => ipcRenderer.invoke('project:pick'),
