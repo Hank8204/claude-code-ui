@@ -418,6 +418,11 @@ export class SessionManager {
     return this.claudeEnv
   }
 
+  /** 共用已快取的 CLI 路徑 / PATH（UsagePoller 也要 spawn claude）。 */
+  getClaudeEnv(): Promise<ClaudeEnv> {
+    return this.ensureClaudeEnv()
+  }
+
   /** 使用者在設定中指定 CLI 路徑後呼叫——清快取，下次 start 重新解析。 */
   setCliPath(path: string): void {
     this.userCliPath = path

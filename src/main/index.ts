@@ -6,6 +6,7 @@ import { HookBridgeServer } from './bridge/HookBridgeServer.js'
 import { registerIpcHandlers, createEmitter } from './ipc.js'
 import { ensureHooksOnStartup } from './bridge/hook-lifecycle.js'
 import { buildAppMenu } from './menu.js'
+import { UsagePoller } from './usage/UsagePoller.js'
 import {
   getUserCliPath,
   getWindowBounds,
@@ -20,6 +21,7 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url))
 let mainWindow: BrowserWindow | null = null
 let bridge: HookBridgeServer | null = null
 let manager: SessionManager | null = null
+let usagePoller: UsagePoller | null = null
 
 function createWindow(): void {
   const bounds = getWindowBounds()
@@ -65,7 +67,13 @@ async function bootstrap(): Promise<void> {
   bridge = new HookBridgeServer((event) => manager?.dispatchHookEvent(event))
   await bridge.start()
 
-  registerIpcHandlers(manager, emit)
+  usagePoller = new UsagePoller(
+    () => manager!.getClaudeEnv(),
+    (report) => emit('usage:report', report)
+  )
+  usagePoller.start()
+
+  registerIpcHandlers(manager, emit, usagePoller)
   await buildAppMenu(manager)
   createWindow()
 
@@ -88,9 +96,11 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async (event) => {
   if (!manager && !bridge) return
   event.preventDefault()
+  usagePoller?.stop()
   await manager?.disposeAll()
   await bridge?.stop()
   manager = null
   bridge = null
+  usagePoller = null
   app.quit()
 })

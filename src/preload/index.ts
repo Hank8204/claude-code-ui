@@ -13,6 +13,7 @@ const SUBSCRIBABLE: MainToRendererChannel[] = [
   'session:controls',
   'session:ended',
   'session:reattached',
+  'usage:report',
   'project:sessions',
   'app:state',
   'app:error'
@@ -41,6 +42,9 @@ const api = {
   pickProjectDir: (): Promise<string | null> => ipcRenderer.invoke('project:pick'),
   setForeground: (id: string | null) => ipcRenderer.invoke('session:setForeground', id),
   getState: () => ipcRenderer.invoke('app:getState'),
+  getUsage: () => ipcRenderer.invoke('usage:get'),
+  refreshUsage: () => ipcRenderer.invoke('usage:refresh'),
+  setUsageInterval: (ms: number) => ipcRenderer.invoke('usage:setInterval', ms),
 
   /** 訂閱 Main → Renderer 事件，回傳退訂函式。 */
   on: (channel: MainToRendererChannel, listener: (payload: unknown) => void): (() => void) => {

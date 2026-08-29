@@ -8,19 +8,27 @@ import {
   type CustomCommand,
   type ToolbarCommandDef
 } from '@shared/toolbar.js'
-import { settingsStore, useToolbar, useCustomCommands } from '../store/settingsStore.js'
+import { USAGE_INTERVALS } from '@shared/usage.js'
+import {
+  settingsStore,
+  useToolbar,
+  useCustomCommands,
+  useUsageInterval
+} from '../store/settingsStore.js'
 
 interface Props {
   onClose: () => void
 }
 
-/** app 內設定頁面。目前只有「工位一鍵指令列」一節。 */
+/** app 內設定頁面：工位一鍵指令列、`/usage` 更新頻率。 */
 export function SettingsPanel({ onClose }: Props): JSX.Element {
   const savedEnabled = useToolbar()
   const savedCustom = useCustomCommands()
+  const savedInterval = useUsageInterval()
 
   const [selected, setSelected] = useState<string[]>(savedEnabled)
   const [custom, setCustom] = useState<CustomCommand[]>(savedCustom)
+  const [intervalMs, setIntervalMs] = useState<number>(savedInterval)
   const [newLabel, setNewLabel] = useState('')
   const [newCommand, setNewCommand] = useState('')
 
@@ -51,6 +59,7 @@ export function SettingsPanel({ onClose }: Props): JSX.Element {
   const save = (): void => {
     settingsStore.setCustom(custom)
     settingsStore.setToolbar(selected)
+    settingsStore.setUsageInterval(intervalMs)
     onClose()
   }
 
@@ -150,6 +159,25 @@ export function SettingsPanel({ onClose }: Props): JSX.Element {
               })
             )}
           </div>
+        </section>
+
+        <section className="settings-section">
+          <h3>用量更新頻率</h3>
+          <p className="settings-hint">
+            開啟 App 會抓一次；之後每隔這個時間重抓 <code>/usage</code>。每次會算一個
+            request，別設太密。
+          </p>
+          <select
+            className="usage-interval-select"
+            value={intervalMs}
+            onChange={(e) => setIntervalMs(Number(e.target.value))}
+          >
+            {USAGE_INTERVALS.map((o) => (
+              <option key={o.ms} value={o.ms}>
+                {o.label}
+              </option>
+            ))}
+          </select>
         </section>
 
         <footer className="settings-foot">

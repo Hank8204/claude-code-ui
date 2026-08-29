@@ -6,19 +6,22 @@ import {
   sanitizeToolbar,
   type CustomCommand
 } from '@shared/toolbar.js'
+import { sanitizeUsageInterval } from '@shared/usage.js'
 
 /**
- * Renderer 端的使用者偏好：一鍵指令列要放哪些指令（含自訂指令）。
+ * Renderer 端的使用者偏好：一鍵指令列的指令（含自訂）、`/usage` 更新頻率。
  *
- * 跟 sessionDefaults 一樣存 localStorage——這是純畫面偏好，不需要進主進程。
- * 用 useSyncExternalStore 讓 RoomToolbar 在設定變更時即時重繪。
+ * 跟 sessionDefaults 一樣存 localStorage——純畫面偏好。頻率會由 App 推給
+ * 主進程的 UsagePoller。用 useSyncExternalStore 讓相關元件即時重繪。
  */
 const TOOLBAR_KEY = 'ccui.toolbar'
 const CUSTOM_KEY = 'ccui.toolbar.custom'
+const USAGE_INTERVAL_KEY = 'ccui.usage.interval'
 
 class SettingsStore {
   private custom: CustomCommand[] = readCustom()
   private toolbar: string[] = sanitizeToolbar(readRawToolbar(), this.knownIds())
+  private usageInterval: number = readUsageInterval()
   private readonly listeners = new Set<() => void>()
 
   subscribe = (fn: () => void): (() => void) => {
@@ -28,6 +31,7 @@ class SettingsStore {
 
   getToolbar = (): string[] => this.toolbar
   getCustom = (): CustomCommand[] => this.custom
+  getUsageInterval = (): number => this.usageInterval
 
   /** 更新開啟的指令清單。 */
   setToolbar(ids: readonly string[]): void {
@@ -42,6 +46,13 @@ class SettingsStore {
     this.toolbar = sanitizeToolbar(this.toolbar, this.knownIds())
     persist(CUSTOM_KEY, this.custom)
     persist(TOOLBAR_KEY, this.toolbar)
+    this.emit()
+  }
+
+  /** 更新 `/usage` 輪詢間隔（ms）。 */
+  setUsageInterval(ms: number): void {
+    this.usageInterval = sanitizeUsageInterval(ms)
+    persist(USAGE_INTERVAL_KEY, this.usageInterval)
     this.emit()
   }
 
@@ -74,6 +85,16 @@ function readCustom(): CustomCommand[] {
   return []
 }
 
+function readUsageInterval(): number {
+  try {
+    const raw = localStorage.getItem(USAGE_INTERVAL_KEY)
+    if (raw !== null) return sanitizeUsageInterval(JSON.parse(raw))
+  } catch {
+    /* localStorage 不可用 / JSON 壞掉 */
+  }
+  return sanitizeUsageInterval(undefined)
+}
+
 function persist(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value))
@@ -92,4 +113,9 @@ export function useToolbar(): string[] {
 /** 目前的自訂指令清單。 */
 export function useCustomCommands(): CustomCommand[] {
   return useSyncExternalStore(settingsStore.subscribe, settingsStore.getCustom)
+}
+
+/** `/usage` 輪詢間隔（ms）；0 = 不自動更新。 */
+export function useUsageInterval(): number {
+  return useSyncExternalStore(settingsStore.subscribe, settingsStore.getUsageInterval)
 }

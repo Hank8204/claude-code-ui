@@ -3,6 +3,7 @@ import type {
   AppStateSnapshot,
   SessionControls,
   SessionState,
+  UsageReport,
   UsageSnapshot
 } from '@shared/types.js'
 import { ProjectFloor } from './components/ProjectFloor.js'
@@ -10,6 +11,8 @@ import { TerminalView } from './components/TerminalView.js'
 import { sessionStore, useAppState, selectSessionsByProject } from './store/sessionStore.js'
 import { AddProjectBar } from './components/AddProjectBar.js'
 import { SettingsPanel } from './components/SettingsPanel.js'
+import { UsagePanel } from './components/UsagePanel.js'
+import { useUsageInterval } from './store/settingsStore.js'
 
 /** 根元件：掛載時訂閱 Main → Renderer 事件並 hydrate store。 */
 export function App(): JSX.Element {
@@ -17,9 +20,14 @@ export function App(): JSX.Element {
   const [openSessionId, setOpenSessionId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [usage, setUsage] = useState<UsageReport | null>(null)
+  const usageInterval = useUsageInterval()
 
   useEffect(() => {
     void window.ccui.getState().then((s) => sessionStore.hydrate(s))
+    // 先秀快取（若有），再強制抓一次——refresh() 的回傳值不吃「事件比訂閱早發」的 race
+    void window.ccui.getUsage().then((r) => r && setUsage(r))
+    void window.ccui.refreshUsage().then((r) => r && setUsage(r))
 
     const offs = [
       window.ccui.on('app:state', (p) => sessionStore.hydrate(p as AppStateSnapshot)),
@@ -50,10 +58,16 @@ export function App(): JSX.Element {
       window.ccui.on('session:reattached', (p) => {
         const e = p as { oldSessionId: string; newSessionId: string }
         setOpenSessionId((cur) => (cur === e.oldSessionId ? e.newSessionId : cur))
-      })
+      }),
+      window.ccui.on('usage:report', (p) => setUsage(p as UsageReport))
     ]
     return () => offs.forEach((off) => off())
   }, [])
+
+  // 把設定的 /usage 更新頻率推給主進程的 UsagePoller
+  useEffect(() => {
+    void window.ccui.setUsageInterval(usageInterval)
+  }, [usageInterval])
 
   const openSession = openSessionId
     ? state.sessions.find((s) => s.sessionId === openSessionId) ?? null
@@ -73,6 +87,15 @@ export function App(): JSX.Element {
           </button>
         </div>
       )}
+
+      <UsagePanel
+        report={usage}
+        onRefresh={async () => {
+          const r = await window.ccui.refreshUsage()
+          if (r) setUsage(r)
+          return r
+        }}
+      />
 
       <main className="floor-stack">
         {state.projects.length === 0 && (

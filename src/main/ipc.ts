@@ -1,6 +1,7 @@
 import { ipcMain, dialog, BrowserWindow } from 'electron'
 import { CliNotFoundError } from './errors.js'
 import type { SessionManager } from './session/SessionManager.js'
+import type { UsagePoller } from './usage/UsagePoller.js'
 import type { MainToRenderer, SessionControls } from '@shared/types.js'
 
 type Emit = <C extends keyof MainToRenderer>(channel: C, payload: MainToRenderer[C]) => void
@@ -9,7 +10,11 @@ type Emit = <C extends keyof MainToRenderer>(channel: C, payload: MainToRenderer
  * 註冊 Renderer → Main 的 invoke handler（spec_01 §4.2）。
  * 逐一列舉 channel，不轉發任意名稱。使用者操作失敗時廣播 app:error。
  */
-export function registerIpcHandlers(manager: SessionManager, emit: Emit): void {
+export function registerIpcHandlers(
+  manager: SessionManager,
+  emit: Emit,
+  usage: UsagePoller
+): void {
   const guard = <T>(fn: () => Promise<T> | T) => async (): Promise<T | undefined> => {
     try {
       return await fn()
@@ -49,6 +54,9 @@ export function registerIpcHandlers(manager: SessionManager, emit: Emit): void {
   ipcMain.handle('session:setForeground', (_e, id: string | null) => manager.setForeground(id))
   ipcMain.handle('project:pick', () => pickProjectDir())
   ipcMain.handle('app:getState', () => manager.getState())
+  ipcMain.handle('usage:get', () => usage.latest)
+  ipcMain.handle('usage:refresh', () => usage.refresh())
+  ipcMain.handle('usage:setInterval', (_e, ms: number) => usage.configure(ms))
 }
 
 /** 原生資料夾選取器（spec_04 / ISSUE-003）。 */

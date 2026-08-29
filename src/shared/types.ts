@@ -112,6 +112,35 @@ export interface RendererToMain {
   /** spec_04：原生資料夾選取器（ISSUE-003）。回傳選定路徑或 null。 */
   'project:pick': () => Promise<string | null>
   'app:getState': () => Promise<AppStateSnapshot>
+  /** 取最後一次抓到的 `/usage` 報告（可能為 null）。 */
+  'usage:get': () => Promise<UsageReport | null>
+  /** 立即重抓 `/usage`。回傳新報告，失敗回 null。 */
+  'usage:refresh': () => Promise<UsageReport | null>
+  /** 設定 `/usage` 輪詢間隔（ms）。0 = 不自動更新。renderer 從設定推入。 */
+  'usage:setInterval': (ms: number) => Promise<void>
+}
+
+/** `/usage` 的單一額度。 */
+export interface UsageLimit {
+  /** 已用百分比（0–100）。 */
+  percent: number
+  /** 重置時間的原文（如「Aug 29 at 8pm (Asia/Taipei)」）。 */
+  resetsAt: string
+}
+
+/**
+ * `claude -p "/usage"` 的帳號用量報告（UsagePoller 定期抓）。
+ * 解析不到的欄位為 null，不讓解析失敗變成整個功能壞掉。
+ */
+export interface UsageReport {
+  /** 抓取時間（epoch ms）。 */
+  fetchedAt: number
+  /** 目前 5 小時 session 額度。 */
+  session: UsageLimit | null
+  /** 本週（所有模型）額度。 */
+  week: UsageLimit | null
+  /** `/usage` 的完整純文字報告，含 Last 24h / Last 7d 明細。 */
+  raw: string
 }
 
 export interface AppStateSnapshot {
@@ -129,6 +158,8 @@ export interface MainToRenderer {
   'session:ended': { sessionId: string; reason: string }
   /** `/clear` 讓同一個 PTY 換了 session id——renderer 需把開啟中的終端機 key 換過去。 */
   'session:reattached': { oldSessionId: string; newSessionId: string }
+  /** UsagePoller 定期（或手動）抓到新的 `/usage` 報告。 */
+  'usage:report': UsageReport
   'project:sessions': { projectId: string; sessionIds: string[] }
   'app:state': AppStateSnapshot
   /** 使用者操作失敗（如找不到 claude CLI）——renderer 顯示可讀訊息。 */
